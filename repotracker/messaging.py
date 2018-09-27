@@ -1,8 +1,8 @@
 # Send messages about updated repos to the UMB
 # Mike Bonnet, 2018-09-27
 
-from rhmsg.activemq.producer import AMQProducer
 import json
+from rhmsg.activemq.producer import AMQProducer
 
 
 def send_container_updates(conf, data):

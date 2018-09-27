@@ -2,10 +2,8 @@
 # Mike Bonnet <mikeb@redhat.com>, 2018-09-27
 
 import argparse
-import util
-import container
-import messaging
 import pprint
+from repotracker import utils, container, messaging
 
 
 def get_args():
@@ -16,16 +14,13 @@ def get_args():
     
 
 def main():
-    try:
-        args = get_args()
-        conf = util.load_config(args.config)
-        data = util.load_data(args.data)
-        new_data = container.check_repos(conf, data)
-        pprint.pprint(new_data)
-        util.save_data(args.data, new_data)
-        messaging.send_container_updates(conf, new_data)
-    except KeyboardInterrupt:
-        raise
+    args = get_args()
+    conf = utils.load_config(args.config)
+    data = utils.load_data(args.data)
+    new_data = container.check_repos(conf, data)
+    pprint.pprint(new_data)
+    utils.save_data(args.data, new_data)
+    messaging.send_container_updates(conf, new_data)
 
 
 if __name__ == '__main__':
