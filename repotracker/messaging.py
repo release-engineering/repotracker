@@ -15,7 +15,7 @@ def send_container_updates(conf, data):
             body = json.dumps(headers, ensure_ascii=False)
             msgs.append((headers, body))
     if msgs:
-        prod = AMQProducer(urls=conf['broker']['urls'].split(','),
+        prod = AMQProducer(urls=conf['broker']['urls'].split(),
                            certificate=conf['broker']['cert'],
                            private_key=conf['broker']['key'],
                            trusted_certificates=conf['broker']['cacerts'],
