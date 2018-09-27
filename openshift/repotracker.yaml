@@ -46,7 +46,7 @@ spec:
   resources:
     requests:
       storage: 1Gi
-  volumeName: container-state-pv
+  storageClassName: dynamic-nfs
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -54,23 +54,23 @@ metadata:
   name: repotracker-config
 data:
   repotracker.ini: |-
-[broker]
-urls = amqps://messaging-devops-broker01.dev1.ext.devlab.redhat.com:5671
-       amqps://messaging-devops-broker02.dev1.ext.devlab.redhat.com:5671
-cert = /secrets/cert
-key = /secrets/key
-cacerts = /etc/pki/tls/certs/ca-bundle.crt
-topic = VirtualTopic.eng.brew.test.repotracker.container.update
-
-[datanommer]
-type = container
-repo = quay.io/factory2/datanommer
-tags = latest stage prod
-
-[datagrepper]
-type = container
-repo = quay.io/factory2/datagrepper
-tags = latest stage prod
+    [broker]
+    urls = amqps://messaging-devops-broker01.dev1.ext.devlab.redhat.com:5671
+           amqps://messaging-devops-broker02.dev1.ext.devlab.redhat.com:5671
+    cert = /secrets/cert
+    key = /secrets/key
+    cacerts = /etc/pki/tls/certs/ca-bundle.crt
+    topic = VirtualTopic.eng.brew.test.repotracker.container.update
+    
+    [datanommer]
+    type = container
+    repo = quay.io/factory2/datanommer
+    tags = latest stage prod
+    
+    [datagrepper]
+    type = container
+    repo = quay.io/factory2/datagrepper
+    tags = latest stage prod
 ---
 apiVersion: batch/v1beta1
 kind: CronJob
@@ -88,7 +88,8 @@ spec:
           activeDeadlineSeconds: 3600
           containers:
           - name: repotracker
-            image: repotracker
+            image: docker-registry.default.svc:5000/fmn-dev/repotracker:latest
+            imagePullPolicy: Always
             volumeMounts:
             - name: config-vol
               mountPath: /etc/repotracker
