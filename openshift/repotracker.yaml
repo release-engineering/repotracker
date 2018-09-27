@@ -1,3 +1,8 @@
+# Create secrets before applying
+#   oc create secret generic repotracker-umb \
+#       --from-file=cert=msg-client-repotracker.crt\
+#       --from-file=key=msg-client-repotracker.key
+
 ---
 apiVersion: v1
 kind: ImageStream
@@ -30,3 +35,77 @@ spec:
   triggers:
   - type: ImageChange
   - type: ConfigChange
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: container-state-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: container-state-pv
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: repotracker-config
+data:
+  repotracker.ini: |-
+[broker]
+urls = amqps://messaging-devops-broker01.dev1.ext.devlab.redhat.com:5671
+       amqps://messaging-devops-broker02.dev1.ext.devlab.redhat.com:5671
+cert = /secrets/cert
+key = /secrets/key
+cacerts = /etc/pki/tls/certs/ca-bundle.crt
+topic = VirtualTopic.eng.brew.test.repotracker.container.update
+
+[datanommer]
+type = container
+repo = quay.io/factory2/datanommer
+tags = latest stage prod
+
+[datagrepper]
+type = container
+repo = quay.io/factory2/datagrepper
+tags = latest stage prod
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: repotracker
+spec:
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 10
+  failedJobsHistoryLimit: 10
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          activeDeadlineSeconds: 3600
+          containers:
+          - name: repotracker
+            image: repotracker
+            volumeMounts:
+            - name: config-vol
+              mountPath: /etc/repotracker
+            - name: umb-certs-vol
+              mountPath: /secrets
+              readOnly: true
+            - name: container-state-vol
+              mountPath: /var/lib/repotracker/containers
+          restartPolicy: OnFailure
+          volumes:
+          - name: config-vol
+            configMap:
+              name: repotracker-config
+          - name: umb-certs-vol
+            secret:
+              secretName: repotracker-umb
+              defaultMode: 420
+          - name: container-state-vol
+            persistentVolumeClaim:
+              claimName: container-state-pvc
