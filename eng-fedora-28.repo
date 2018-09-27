@@ -1,0 +1,7 @@
+[eng-fedora-28]
+name=eng-fedora-28 repo
+baseurl=http://download.eng.bos.redhat.com/brewroot/repos/eng-fedora-28-build/latest/$basearch/
+enabled=1
+gpgcheck=0
+repo_gpgcheck=0
+type=rpm

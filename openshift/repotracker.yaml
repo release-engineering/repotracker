@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: ImageStream
+metadata:
+  labels:
+    app: repotracker
+  name: repotracker
+spec:
+  lookupPolicy:
+    local: false
+---
+apiVersion: v1
+kind: BuildConfig
+metadata:
+  labels:
+    app: repotracker
+  name: repotracker
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: repotracker:latest
+  runPolicy: Serial
+  source:
+    git:
+      uri: https://github.com/mikebonnet/repotracker.git
+    type: Git
+  strategy:
+    type: Docker
+  triggers:
+  - type: ImageChange
+  - type: ConfigChange
