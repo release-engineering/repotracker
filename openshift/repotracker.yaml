@@ -32,6 +32,8 @@ spec:
     type: Git
   strategy:
     type: Docker
+    dockerStrategy:
+      noCache: true
   triggers:
   - type: ImageChange
   - type: ConfigChange
