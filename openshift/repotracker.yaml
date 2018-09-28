@@ -11,8 +11,9 @@ metadata:
     app: repotracker
   name: repotracker
 spec:
+  name: latest
   lookupPolicy:
-    local: false
+    local: true
 ---
 apiVersion: v1
 kind: BuildConfig
@@ -74,16 +75,22 @@ data:
     repo = quay.io/factory2/datagrepper
     tags = latest stage prod
 ---
-apiVersion: batch/v1beta1
+apiVersion: batch/v2alpha1
 kind: CronJob
 metadata:
   name: repotracker
+  labels:
+    app: repotracker
 spec:
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 10
-  failedJobsHistoryLimit: 10
   schedule: "*/5 * * * *"
+  suspend: false
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
   jobTemplate:
+    metadata:
+      labels:
+        app: repotracker
     spec:
       activeDeadlineSeconds: 3600
       parallelism: 1
@@ -91,12 +98,16 @@ spec:
       template:
         metadata:
           labels:
+            app: repotracker
             parent: repotracker-cronjob
         spec:
           containers:
-          - name: repotracker
-            image: docker-registry.default.svc:5000/fmn-dev/repotracker:latest
+          - name: repotracker-job
+            image: repotracker
             imagePullPolicy: Always
+            metadata:
+              labels:
+                app: repotracker
             volumeMounts:
             - name: config-vol
               mountPath: /etc/repotracker
