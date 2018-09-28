@@ -20,16 +20,25 @@ def check_repos(conf, data):
             proc.check_returncode()
             repodata = json.loads(proc.stdout)
             changed = False
-            current = {'repo': section['repo'],
-                       'tag': tag,
-                       'digest': repodata['Digest']}
+            current = {
+                'repo': section['repo'],
+                'reponame': section['repo'].split('/')[-1],
+                'tag': tag,
+                'digest': repodata['Digest'],
+                'created': repodata['Created'],
+                'labels': repodata['Labels'],
+                'os': repodata['Os'],
+                'arch': repodata['Architecture'],
+                'layers': repodata['Layers'],
+            }
             if label in data:
-                if data[label]['digest'] == current['digest']:
-                    current['old_digest'] = data[label]['old_digest']
-                    current['changed'] = False
-                else:
-                    current['old_digest'] = data[label]['digest']
+                old = data[label]
+                if current['digest'] != old['digest']:
+                    current['old_digest'] = old['digest']
                     current['changed'] = True
+                else:
+                    current['old_digest'] = old['old_digest']
+                    current['changed'] = False
             else:
                 current['old_digest'] = None
                 current['changed'] = False

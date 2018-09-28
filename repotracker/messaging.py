@@ -9,11 +9,18 @@ def send_container_updates(conf, data):
     msgs = []
     for repo in data.values():
         if repo['changed']:
-            headers = repo.copy()
-            del headers['changed']
-            headers['reponame'] = headers['repo'].split('/')[-1]
-            body = json.dumps(headers, ensure_ascii=False)
-            msgs.append((headers, body))
+            body = repo.copy()
+            del body['changed']
+            headers = {
+                body['repo'],
+                body['reponame'],
+                body['tag'],
+                body['created'],
+                body['os'],
+                body['arch'],
+            }
+            jsonbody = json.dumps(headers, ensure_ascii=False)
+            msgs.append((headers, jsonbody))
     if msgs:
         prod = AMQProducer(urls=conf['broker']['urls'].split(),
                            certificate=conf['broker']['cert'],
