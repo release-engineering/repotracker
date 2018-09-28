@@ -1,6 +1,6 @@
 # Create secrets before applying
 #   oc create secret generic repotracker-umb \
-#       --from-file=cert=msg-client-repotracker.crt\
+#       --from-file=cert=msg-client-repotracker.crt \
 #       --from-file=key=msg-client-repotracker.key
 
 ---
@@ -85,9 +85,14 @@ spec:
   schedule: "*/5 * * * *"
   jobTemplate:
     spec:
+      activeDeadlineSeconds: 3600
+      parallelism: 1
+      completions: 1
       template:
+        metadata:
+          labels:
+            parent: repotracker-cronjob
         spec:
-          activeDeadlineSeconds: 3600
           containers:
           - name: repotracker
             image: docker-registry.default.svc:5000/fmn-dev/repotracker:latest
@@ -100,6 +105,13 @@ spec:
               readOnly: true
             - name: container-state-vol
               mountPath: /var/lib/repotracker/containers
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 200m
+                memory: 256Mi
           restartPolicy: OnFailure
           volumes:
           - name: config-vol
