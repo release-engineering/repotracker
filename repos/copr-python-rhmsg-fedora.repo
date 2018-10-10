@@ -1,0 +1,9 @@
+[copr-python-rhmsg-fedora]
+name=Copr repo for python-rhmsg (Fedora $releasever)
+baseurl=https://copr-be.cloud.fedoraproject.org/results/mikeb/python-rhmsg/fedora-$releasever-$basearch/
+type=rpm-md
+gpgcheck=1
+gpgkey=https://copr-be.cloud.fedoraproject.org/results/mikeb/python-rhmsg/pubkey.gpg
+repo_gpgcheck=0
+enabled=1
+enabled_metadata=1
