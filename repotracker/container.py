@@ -38,7 +38,6 @@ def gen_result(repo, tag, tagdata):
         'labels': tagdata.get('Labels', {}),
         'os': tagdata.get('Os'),
         'arch': tagdata.get('Architecture'),
-        'layers': tagdata.get('Layers', [])
     }
 
 

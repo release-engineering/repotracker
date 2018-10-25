@@ -5,13 +5,15 @@ import json
 from rhmsg.activemq.producer import AMQProducer
 
 
+log = logging.getLogger(__name__)
+
+
 def gen_msg(tagdata):
     """
     Generate a (headers, body) tuple from the tag data.
     """
     headers = tagdata.copy()
     del headers['labels']
-    del headers['layers']
     body = json.dumps(tagdata, ensure_ascii=False)
     return (headers, body)
 
@@ -50,3 +52,4 @@ def send_container_updates(conf, data):
         with producer as prod:
             prod.through_topic(prefix + '.container.tag.removed')
             prod.send_msgs(removed)
+    log.info('Sent %s messages', sum(map(len, [added, updated, removed])))
