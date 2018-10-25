@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 def get_args():
     parser = argparse.ArgumentParser(description='Send a message when the contents of a container repository changes')
     parser.add_argument('-q', '--quiet', help='Suppress output', action='store_true')
+    parser.add_argument('-v', '--verbose', help='Print extended output')
     parser.add_argument('-c', '--config', help='Config file', default='/etc/repotracker/repotracker.ini')
     parser.add_argument('-d', '--data', help='File used to record repo state',
                         default='/var/lib/repotracker/containers/repotracker-containers.json')
@@ -28,7 +29,7 @@ def main():
     conf = utils.load_config(args.config)
     data = utils.load_data(args.data)
     new_data = container.check_repos(conf, data)
-    if not args.quiet:
+    if args.verbose:
         pprint.pprint(new_data)
     try:
         messaging.send_container_updates(conf, new_data)
