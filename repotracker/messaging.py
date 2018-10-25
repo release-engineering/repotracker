@@ -5,26 +5,48 @@ import json
 from rhmsg.activemq.producer import AMQProducer
 
 
+def gen_msg(tagdata):
+    """
+    Generate a (headers, body) tuple from the tag data.
+    """
+    headers = tagdata.copy()
+    del headers['labels']
+    del headers['layers']
+    body = json.dumps(tagdata, ensure_ascii=False)
+    return (headers, body)
+
+
 def send_container_updates(conf, data):
-    msgs = []
-    for repo in data.values():
-        if repo['changed']:
-            body = repo.copy()
-            del body['changed']
-            headers = {
-                'repo': body['repo'],
-                'reponame': body['reponame'],
-                'tag': body['tag'],
-                'created': body['created'],
-                'os': body['os'],
-                'arch': body['arch'],
-            }
-            jsonbody = json.dumps(body, ensure_ascii=False)
-            msgs.append((headers, jsonbody))
-    if msgs:
-        prod = AMQProducer(urls=conf['broker']['urls'].split(),
+    added = []
+    updated = []
+    removed = []
+    for repo, tags in data.items():
+        for tag, tagdata in tags.items():
+            msg = gen_msg(tagdata)
+            if tagdata['action'] == 'unchanged':
+                pass
+            elif tagdata['action'] == 'updated':
+                updated.append(msg)
+            elif tagdata['action'] == 'added':
+                added.append(msg)
+            elif tagdata['action'] == 'removed':
+                removed.append(msg)
+            else:
+                log.error('Unknown action: %s', tagdata['action'])
+    producer = AMQProducer(urls=conf['broker']['urls'].split(),
                            certificate=conf['broker']['cert'],
                            private_key=conf['broker']['key'],
-                           trusted_certificates=conf['broker']['cacerts'],
-                           topic=conf['broker']['topic'])
-        prod.send_msgs(msgs)
+                           trusted_certificates=conf['broker']['cacerts'])
+    prefix = conf['broker']['topic_prefix'].rstrip('.')
+    if added:
+        with producer as prod:
+            prod.through_topic(prefix + '.container.tag.added')
+            prod.send_msgs(added)
+    if updated:
+        with producer as prod:
+            prod.through_topic(prefix + '.container.tag.updated')
+            prod.send_msgs(updated)
+    if removed:
+        with producer as prod:
+            prod.through_topic(prefix + '.container.tag.removed')
+            prod.send_msgs(removed)
