@@ -57,7 +57,7 @@ def check_repos(conf, data):
         try:
             latest_data = inspect_repo(repo, 'latest')
         except:
-            log.error('Could not query {0}:latest', repo, exc_info=True)
+            log.error('Could not query %s:latest', repo, exc_info=True)
             continue
         new_data[repo] = {}
         tags = latest_data['RepoTags']
@@ -68,7 +68,7 @@ def check_repos(conf, data):
                 try:
                     tagdata = inspect_repo(repo, tag)
                 except:
-                    log.error('Could not query {0}:{1}', repo, tag, exc_info=True)
+                    log.error('Could not query %s:%s', repo, tag, exc_info=True)
                     tagdata = {}
             current = gen_result(repo, tag, tagdata)
             previous = data.get(repo, {}).get(tag, {})
