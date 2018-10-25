@@ -1,2 +1,2 @@
 # repotracker
-A microservice for tracking yum and container repositories, and publishing a message when they change
+A microservice for tracking container repositories, and publishing a message when they change.
