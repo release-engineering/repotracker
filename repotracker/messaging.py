@@ -2,6 +2,7 @@
 # Mike Bonnet, 2018-09-27
 
 import json
+import logging
 from rhmsg.activemq.producer import AMQProducer
 
 
