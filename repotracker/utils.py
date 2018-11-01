@@ -1,5 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright 2018 Mike Bonnet <mikeb@redhat.com>
 # Utility functions for repotacker
-# Mike Bonnet, 2018-09-27
 
 import configparser
 import json
@@ -16,11 +17,10 @@ def load_config(path):
 
 
 def load_data(path):
-    if os.path.exists(path):
+    if os.path.exists(path) and os.path.getsize(path) > 0:
         with open(path) as fobj:
             return json.load(fobj)
-    else:
-        return {}
+    return {}
 
 
 def save_data(path, data):
