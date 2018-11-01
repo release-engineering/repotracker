@@ -1,2 +1,3 @@
+# SPDX-License-Identifier: GPL-3.0+
+# Copyright 2018 Mike Bonnet <mikeb@redhat.com>
 # repotracker module
-# Mike Bonnet, 2018-09-27

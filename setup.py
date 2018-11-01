@@ -9,7 +9,8 @@ setup(
     license='GPLv3',
     url='https://github.com/release-engineering/repotracker',
     packages=find_packages(),
-    tests_require=['pytest', 'mock'],
+    setup_requires=['pytest-runner', 'flake8'],
+    tests_require=['pytest', 'pytest-cov'],
     data_files=[
         ('/etc/repotracker', ['repotracker.ini']),
     ],

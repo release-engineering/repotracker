@@ -1,5 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright 2018 Mike Bonnet <mikeb@redhat.com>
 # Logic for checking the state of container repos
-# Mike Bonnet, 2018-09-27
 
 import subprocess
 import json
@@ -110,4 +111,5 @@ def check_repos(conf, data):
                 current['action'] = 'removed'
                 current['old_digest'] = previous['digest']
                 new_data[repo][tag] = current
+                log.info('%:%s has been removed (was %s)', repo, tag, previous['digest'])
     return new_data

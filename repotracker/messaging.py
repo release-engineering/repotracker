@@ -1,5 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright 2018 Mike Bonnet <mikeb@redhat.com>
 # Send messages about updated repos to the UMB
-# Mike Bonnet, 2018-09-27
 
 import json
 import logging
@@ -35,7 +36,7 @@ def send_container_updates(conf, data):
             elif tagdata['action'] == 'removed':
                 removed.append(msg)
             else:
-                log.error('Unknown action: %s', tagdata['action'])
+                log.error('Unknown action: %s', tagdata['action'])  # pragma: no cover
     producer = AMQProducer(urls=conf['broker']['urls'].split(),
                            certificate=conf['broker']['cert'],
                            private_key=conf['broker']['key'],
