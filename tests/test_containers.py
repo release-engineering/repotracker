@@ -285,6 +285,59 @@ def test_check_repos_removed(inspect_repo):
     }
 
 
+@patch.object(container, 'inspect_repo', autospec=True, return_value=INSPECT_DATA_1)
+def test_check_repos_removed_previously(inspect_repo):
+    """
+    Test that a previously removed tag doesn't stay in the results.
+    """
+    old_data = {
+        'example.com/repos/testrepo': {
+            'latest': {
+                'action': 'added',
+                'repo': 'example.com/repos/testrepo',
+                'reponame': 'testrepo',
+                'tag': 'latest',
+                'digest': INSPECT_DATA_1['Digest'],
+                'old_digest': None,
+                'created': INSPECT_DATA_1['Created'],
+                'labels': INSPECT_DATA_1['Labels'],
+                'os': INSPECT_DATA_1['Os'],
+                'arch': INSPECT_DATA_1['Architecture'],
+            },
+            'stage': {
+                'action': 'removed',
+                'repo': 'example.com/repos/testrepo',
+                'reponame': 'testrepo',
+                'tag': 'stage',
+                'digest': None,
+                'old_digest': INSPECT_DATA_2['Digest'],
+                'created': None,
+                'labels': {},
+                'os': None,
+                'arch': None,
+            }
+        }
+    }
+    result = container.check_repos(CONF, old_data)
+    inspect_repo.assert_called_once_with('example.com/repos/testrepo', 'latest')
+    assert result == {
+        'example.com/repos/testrepo': {
+            'latest': {
+                'action': 'unchanged',
+                'repo': 'example.com/repos/testrepo',
+                'reponame': 'testrepo',
+                'tag': 'latest',
+                'digest': INSPECT_DATA_1['Digest'],
+                'old_digest': None,
+                'created': INSPECT_DATA_1['Created'],
+                'labels': INSPECT_DATA_1['Labels'],
+                'os': INSPECT_DATA_1['Os'],
+                'arch': INSPECT_DATA_1['Architecture'],
+            },
+        }
+    }
+
+
 @patch.dict(INSPECT_DATA_1, RepoTags=['latest', 'stage'])
 @patch.object(container, 'inspect_repo', autospec=True, side_effect=[INSPECT_DATA_1, RuntimeError('no such tag')])
 def test_check_repos_removed_race(inspect_repo):
