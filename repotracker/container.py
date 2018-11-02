@@ -96,7 +96,7 @@ def check_repos(conf, data):
                     # Rare, race condition with deletion
                     current['action'] = 'removed'
                     current['old_digest'] = previous['digest']
-                    log.info('%:%s has been removed (was %s)', repo, tag, previous['digest'])
+                    log.info('%s:%s has been removed (was %s)', repo, tag, previous['digest'])
                 else:
                     # Tag does not exist now, did not exist before
                     # Should never happen, but could be a race condition with tag creation/deletion
@@ -106,10 +106,14 @@ def check_repos(conf, data):
         for tag, previous in data.get(repo, {}).items():
             # Need to check for tags that we've seen before and have been removed
             if tag not in new_data[repo]:
-                # Tag does not exist now, existed before
-                current = gen_result(repo, tag, {})
-                current['action'] = 'removed'
-                current['old_digest'] = previous['digest']
-                new_data[repo][tag] = current
-                log.info('%:%s has been removed (was %s)', repo, tag, previous['digest'])
+                if previous['action'] == 'removed':
+                    # we already processed the removal of this tag, so we can ignore it not
+                    log.info('%s:%s was previously removed, ignoring', repo, tag)
+                else:
+                    # Tag does not exist now, existed before
+                    current = gen_result(repo, tag, {})
+                    current['action'] = 'removed'
+                    current['old_digest'] = previous['digest']
+                    new_data[repo][tag] = current
+                    log.info('%s:%s has been removed (was %s)', repo, tag, previous['digest'])
     return new_data
