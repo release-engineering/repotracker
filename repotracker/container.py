@@ -74,7 +74,14 @@ def check_repos(conf, data):
             previous = data.get(repo, {}).get(tag, {})
             if tagdata:
                 if previous:
-                    if current['digest'] == previous['digest']:
+                    if previous['action'] == 'removed':
+                        # Tag exists now, but it was removed on the previous run.
+                        # Treat this as a tag addition
+                        current['action'] = 'added'
+                        current['old_digest'] = None
+                        log.info('%s:%s was readded (digest %s, old_digest was %s)', repo, tag,
+                                 current['digest'], previous['old_digest'])
+                    elif current['digest'] == previous['digest']:
                         # Tag exists now, existed before, and has not changed
                         current['action'] = 'unchanged'
                         current['old_digest'] = previous['old_digest']
@@ -96,7 +103,7 @@ def check_repos(conf, data):
                     # Rare, race condition with deletion
                     current['action'] = 'removed'
                     current['old_digest'] = previous['digest']
-                    log.info('%s:%s has been removed (was %s)', repo, tag, previous['digest'])
+                    log.info('%s:%s has been removed (digest was %s)', repo, tag, previous['digest'])
                 else:
                     # Tag does not exist now, did not exist before
                     # Should never happen, but could be a race condition with tag creation/deletion
@@ -108,7 +115,8 @@ def check_repos(conf, data):
             if tag not in new_data[repo]:
                 if previous['action'] == 'removed':
                     # we already processed the removal of this tag, so we can ignore it not
-                    log.info('%s:%s was previously removed, ignoring', repo, tag)
+                    log.info('%s:%s was previously removed (old_digest %s), ignoring', repo, tag,
+                             previous['old_digest'])
                 else:
                     # Tag does not exist now, existed before
                     current = gen_result(repo, tag, {})
