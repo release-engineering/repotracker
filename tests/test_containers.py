@@ -455,3 +455,45 @@ def test_check_repos_ghost(inspect_repo):
             },
         }
     }
+
+
+@patch.object(container, 'inspect_repo', autospec=True, return_value=INSPECT_DATA_1)
+def test_check_repos_readded(inspect_repo):
+    """
+    Test that a repo that is readded immediately after it was removed results in
+    a "added" message, and not an "updated" message.
+    """
+    old_data = {
+        'example.com/repos/testrepo': {
+            'latest': {
+                'action': 'removed',
+                'repo': 'example.com/repos/testrepo',
+                'reponame': 'testrepo',
+                'tag': 'latest',
+                'digest': None,
+                'old_digest': 'a1b2c3',
+                'created': None,
+                'labels': {},
+                'os': None,
+                'arch': None,
+            }
+        }
+    }
+    result = container.check_repos(CONF, old_data)
+    inspect_repo.assert_called_once_with('example.com/repos/testrepo', 'latest')
+    assert result == {
+        'example.com/repos/testrepo': {
+            'latest': {
+                'action': 'added',
+                'repo': 'example.com/repos/testrepo',
+                'reponame': 'testrepo',
+                'tag': 'latest',
+                'digest': INSPECT_DATA_1['Digest'],
+                'old_digest': None,
+                'created': INSPECT_DATA_1['Created'],
+                'labels': INSPECT_DATA_1['Labels'],
+                'os': INSPECT_DATA_1['Os'],
+                'arch': INSPECT_DATA_1['Architecture'],
+            }
+        }
+    }
