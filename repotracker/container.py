@@ -5,23 +5,89 @@
 import subprocess
 import json
 import logging
+import requests
+from repotracker.utils import format_ts, format_time
 
 
 log = logging.getLogger(__name__)
 
 
-def inspect_repo(repo, tag):
+def inspect_repo(repo):
     """
-    Inspect the contents of the tag within the given repo.
+    Inspect the repo. Return a dict whose keys are tag names and whose values
+    are dicts of data about the tag. The dicts will have at least the following
+    keys:
+    - Name: name of the repo
+    - Tag: name of the tag
+    - Digest: checksum:digest of the image
+    - Created: timestamp when the tag was created or last updated, in ISO 8601
+               combined format in UTC
+    - Labels: a list of labels on the image
+    - Os: the operating system of the image
+    - Architecture: the processor architecture of the image
+    """
+    results = {}
+    if repo.startswith('quay.io'):
+        # Use the quay.io REST API
+        hostname, reponame = repo.split('/', 1)
+        page = 1
+        while True:
+            url = 'https://{0}/api/v1/repository/{1}/tag/?onlyActiveTags=true&limit=100&page={2}'.\
+                format(hostname, reponame, page)
+            resp = requests.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+            for tag in data['tags']:
+                if tag['name'] not in results:
+                    results[tag['name']] = {
+                        'Name': repo,
+                        'Tag': tag['name'],
+                        'Digest': tag['manifest_digest'],
+                        'Created': format_ts(tag['start_ts']),
+                        'Labels': {},
+                        'Os': '',
+                        'Architecture': ''
+                    }
+            if not data['has_additional']:
+                break
+            page += 1
+    else:
+        # Use skopeo
+        tags = []
+        # Don't assume the repo has a :latest tag.
+        # Record info for whatever skopeo wants to tell us when we don't specify a tag.
+        default = inspect_tag(repo)
+        results[default['Tag']] = default
+        tags = default['RepoTags']
+        for tag in tags:
+            if tag not in results:
+                try:
+                    results[tag] = inspect_tag(repo, tag)
+                except:
+                    log.error('Could not query %s:%s', repo, tag, exc_info=True)
+    return results
+
+
+def inspect_tag(repo, tag=None):
+    """
+    Inspect the contents of the tag within the given repo. If no tag is specified,
+    skopeo should inspect the default tag.
     Returns a dict describing the image referenced by the given tag.
     If the repo is not accessible, or the tag does not exist, raise an
     exception.
     """
-    proc = subprocess.run(['/usr/bin/skopeo', 'inspect', 'docker://{0}:{1}'.format(repo, tag)],
+    if tag:
+        tag = ':' + tag
+    else:
+        tag = ''
+    proc = subprocess.run(['/usr/bin/skopeo', 'inspect', 'docker://{0}{1}'.format(repo, tag)],
                           stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE,
                           encoding='utf-8')
     if proc.returncode:
+        if 'manifest unknown' in proc.stderr:
+            # This tag has been deleted, which is represented by an empty dict.
+            return {}
         raise RuntimeError('Error inspecting {0}:{1}: {2}'.format(repo, tag, proc.stderr))
     return json.loads(proc.stdout)
 
@@ -35,7 +101,7 @@ def gen_result(repo, tag, tagdata):
         'reponame': repo.split('/')[-1],
         'tag': tag,
         'digest': tagdata.get('Digest'),
-        'created': tagdata.get('Created'),
+        'created': format_time(tagdata.get('Created')),
         'labels': tagdata.get('Labels', {}),
         'os': tagdata.get('Os'),
         'arch': tagdata.get('Architecture'),
@@ -55,21 +121,17 @@ def check_repos(conf, data):
             continue
         repo = section['repo']
         try:
-            latest_data = inspect_repo(repo, 'latest')
+            tags = inspect_repo(repo)
         except:
-            log.error('Could not query %s:latest', repo, exc_info=True)
+            # Error communicating with the repo.
+            # Assume it's a temporary error, reuse data from the previous run.
+            log.error('Could not query %s', repo, exc_info=True)
+            if repo in data:
+                new_data[repo] = data[repo]
+                new_data[repo]['ignore'] = True
             continue
-        new_data[repo] = {}
-        tags = latest_data['RepoTags']
-        for tag in tags:
-            if tag == 'latest':
-                tagdata = latest_data
-            else:
-                try:
-                    tagdata = inspect_repo(repo, tag)
-                except:
-                    log.error('Could not query %s:%s', repo, tag, exc_info=True)
-                    tagdata = {}
+        repodata = {}
+        for tag, tagdata in tags.items():
             current = gen_result(repo, tag, tagdata)
             previous = data.get(repo, {}).get(tag, {})
             if tagdata:
@@ -100,7 +162,7 @@ def check_repos(conf, data):
             else:
                 if previous:
                     # Tag does not exist now, existed before
-                    # Rare, race condition with deletion
+                    # Rare, race condition with deletion when inspecting a repo with skopeo.
                     current['action'] = 'removed'
                     current['old_digest'] = previous['digest']
                     log.info('%s:%s has been removed (digest was %s)', repo, tag, previous['digest'])
@@ -109,10 +171,13 @@ def check_repos(conf, data):
                     # Should never happen, but could be a race condition with tag creation/deletion
                     log.warning('%s:%s is a ghost', repo, tag)
                     continue
-            new_data[repo][tag] = current
+            repodata[tag] = current
         for tag, previous in data.get(repo, {}).items():
+            # Skip the ignore flag
+            if tag == 'ignore':
+                continue
             # Need to check for tags that we've seen before and have been removed
-            if tag not in new_data[repo]:
+            if tag not in repodata:
                 if previous['action'] == 'removed':
                     # we already processed the removal of this tag, so we can ignore it not
                     log.info('%s:%s was previously removed (old_digest %s), ignoring', repo, tag,
@@ -122,6 +187,7 @@ def check_repos(conf, data):
                     current = gen_result(repo, tag, {})
                     current['action'] = 'removed'
                     current['old_digest'] = previous['digest']
-                    new_data[repo][tag] = current
+                    repodata[tag] = current
                     log.info('%s:%s has been removed (was %s)', repo, tag, previous['digest'])
+        new_data[repo] = repodata
     return new_data

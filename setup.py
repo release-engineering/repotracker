@@ -5,10 +5,11 @@ setup(
     description='A microservice for tracking container repositories, and publishing a message when they change',
     author='Mike Bonnet',
     author_email='mikeb@redhat.com',
-    version='0.0.1',
+    version='0.0.2',
     license='GPLv3',
     url='https://github.com/release-engineering/repotracker',
     packages=find_packages(),
+    install_requires=['requests', 'service_identity'],
     setup_requires=['pytest-runner', 'flake8'],
     tests_require=['pytest', 'pytest-cov'],
     data_files=[
