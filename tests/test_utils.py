@@ -101,3 +101,45 @@ def test_save_data(tmpdir):
     }
     utils.save_data(str(data), expected)
     assert json.dumps(expected) == data.read()
+
+
+def test_format_ts_int():
+    """
+    Test that format_ts() formats integer timestamps correctly.
+    """
+    assert utils.format_ts(1556038408) == '2019-04-23T16:53:28Z'
+
+
+def test_format_ts_float():
+    """
+    Test that format_ts() formats float timestamps correctly.
+    """
+    assert utils.format_ts(1556038408.123) == '2019-04-23T16:53:28Z'
+
+
+def test_format_time():
+    """
+    Test that format_time() formats datetime strings correctly.
+    """
+    assert utils.format_time('2019-04-23T16:41:13.304737955Z') == \
+        '2019-04-23T16:41:13Z'
+    assert utils.format_time('2019-04-23T16:41:13.0Z') == \
+        '2019-04-23T16:41:13Z'
+    assert utils.format_time('2019-04-23T16:41:13Z') == \
+        '2019-04-23T16:41:13Z'
+    assert utils.format_time('2019-04-23T16:41:13.304737955UTC') == \
+        '2019-04-23T16:41:13UTC'
+    assert utils.format_time('2019-04-23T16:41:13.0UTC') == \
+        '2019-04-23T16:41:13UTC'
+    assert utils.format_time('2019-04-23T16:41:13UTC') == \
+        '2019-04-23T16:41:13UTC'
+    assert utils.format_time('2019-04-23T16:41:13') == \
+        '2019-04-23T16:41:13'
+
+
+def test_format_time_empty():
+    """
+    Test that format_time() handles empty values correctly.
+    """
+    assert utils.format_time(None) == None
+    assert utils.format_time('') == None

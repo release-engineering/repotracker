@@ -48,6 +48,16 @@ def test_gen_msg():
     assert result == (data, expected_body)
 
 
+@patch.dict(DATA['example.com/repos/testrepo'], ignore=True)
+@patch.object(messaging, 'AMQProducer')
+def test_send_container_updates_ignore(prod):
+    """
+    Test that no messages are sent when a repo is marked as ignored.
+    """
+    messaging.send_container_updates(CONF, DATA)
+    prod.return_value.__enter__.return_value.send_msgs.assert_not_called()
+
+
 @patch.dict(DATA['example.com/repos/testrepo']['latest'], action='unchanged')
 @patch.object(messaging, 'AMQProducer')
 def test_send_container_updates_unchanged(prod):

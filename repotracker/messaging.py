@@ -25,6 +25,9 @@ def send_container_updates(conf, data):
     updated = []
     removed = []
     for repo, tags in data.items():
+        if 'ignore' in tags:
+            log.info('Ignoring data for %s', repo)
+            continue
         for tag, tagdata in tags.items():
             msg = gen_msg(tagdata)
             if tagdata['action'] == 'unchanged':
