@@ -1,8 +1,8 @@
-FROM fedora:29
+FROM fedora:32
 LABEL \
     name="repotracker" \
-    vendor="The Factory 2.0 Team" \
-    maintainer="The Factory 2.0 Team <pnt-factory2-devel@redhat.com>" \
+    vendor="EXD SP" \
+    maintainer="C3I Guild <exd-guild-c3i@redhat.com>" \
     license="GPLv3" \
     description="A microservice for tracking container repositories, and publishing a message when they change." \
     usage="https://github.com/release-engineering/repotracker"
