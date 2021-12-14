@@ -727,7 +727,8 @@ def test_quay_latest(get):
     get.return_value.json.return_value = QUAY_API_DATA
     result = container.check_repos(CONF, {})
     get.assert_called_once_with(
-        'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1'
+        'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
+        headers={}
     )
     assert result == {
         'quay.io/repos/testrepo': {
@@ -747,6 +748,36 @@ def test_quay_latest(get):
     }
 
 
+@patch.dict(CONF['test'], repo='quay.io/repos/testrepo', token_env="ENV_TOKEN")
+@patch.dict(container.os.environ, {"ENV_TOKEN": "TOKEN"})
+@patch.object(container.requests, 'get', autospec=True)
+def test_quay_token(get):
+    """
+    Test that token is passed from config.
+    """
+    get.return_value.json.return_value = QUAY_API_DATA
+    result = container.check_repos(CONF, {})
+    get.assert_called_once_with(
+        'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
+        headers={"Authorization": "Bearer TOKEN"}
+    )
+
+
+@patch.dict(CONF['test'], repo='quay.io/repos/testrepo', token_env="ENV_TOKEN")
+@patch.dict(container.os.environ, {})
+@patch.object(container.requests, 'get', autospec=True)
+def test_quay_token_missing(get):
+    """
+    Test missing token in env but defined in config.
+    """
+    get.return_value.json.return_value = QUAY_API_DATA
+    result = container.check_repos(CONF, {})
+    get.assert_called_once_with(
+        'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
+        headers={}
+    )
+
+
 @patch.dict(CONF['test'], repo='quay.io/repos/testrepo')
 @patch.object(container.requests, 'get', autospec=True)
 def test_quay_multitag(get):
@@ -756,7 +787,8 @@ def test_quay_multitag(get):
     get.return_value.json.return_value = QUAY_API_DATA_MULTITAG
     result = container.check_repos(CONF, {})
     get.assert_called_once_with(
-        'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1'
+        'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
+        headers={}
     )
     assert result == {
         'quay.io/repos/testrepo': {
@@ -797,9 +829,18 @@ def test_quay_multipage(get):
     get.return_value.json.side_effect = QUAY_API_DATA_MULTIPAGE
     result = container.check_repos(CONF, {})
     calls = [
-        call('https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1'),
-        call('https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=2'),
-        call('https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=3')
+        call(
+            'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
+             headers={}
+        ),
+        call(
+            'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=2',
+             headers={}
+        ),
+        call(
+            'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=3',
+             headers={}
+        )
     ]
     get.assert_has_calls(calls, any_order=True)
     assert result == {
@@ -855,8 +896,14 @@ def test_quay_multitag_multipage(get):
     get.return_value.json.side_effect = [QUAY_API_DATA_MULTITAG, QUAY_API_DATA]
     result = container.check_repos(CONF, {})
     calls = [
-        call('https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1'),
-        call('https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=2')
+        call(
+            'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
+            headers={}
+        ),
+        call(
+            'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=2',
+            headers={}
+        )
     ]
     get.assert_has_calls(calls, any_order=True)
     assert result == {
@@ -926,7 +973,8 @@ def test_quay_error_unchanged(get):
     }
     result = container.check_repos(CONF, old_data)
     get.assert_called_once_with(
-        'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1'
+        'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
+        headers={}
     )
     assert result == {
         'quay.io/repos/testrepo': {
@@ -957,7 +1005,8 @@ def test_quay_duplicate_tag(get):
     get.return_value.json.return_value = QUAY_API_DATA_MULTITAG
     result = container.check_repos(CONF, {})
     get.assert_called_once_with(
-        'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1'
+        'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
+        headers={}
     )
     assert result == {
         'quay.io/repos/testrepo': {
