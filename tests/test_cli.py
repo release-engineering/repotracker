@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright 2018 Mike Bonnet <mikeb@redhat.com>
 
+import pytest
 from unittest.mock import patch, MagicMock
 producer_mock = MagicMock()
 patch.dict('sys.modules', values={'rhmsg.activemq.producer': producer_mock}).start()
-from repotracker import cli
-import pytest
+
+from repotracker import cli  # noqa: E402
 
 
 @patch('sys.argv', new=['foo'])
@@ -14,8 +15,8 @@ def test_get_args_default():
     Test that get_args() returns the expected default values.
     """
     args = cli.get_args()
-    assert args.quiet == False
-    assert args.verbose == False
+    assert args.quiet is False
+    assert args.verbose is False
     assert args.config == '/etc/repotracker/repotracker.ini'
     assert args.data == '/var/lib/repotracker/containers/repotracker-containers.json'
 
@@ -26,8 +27,8 @@ def test_get_args_all():
     Test that get_args() respects all command-line options.
     """
     args = cli.get_args()
-    assert args.quiet == True
-    assert args.verbose == True
+    assert args.quiet is True
+    assert args.verbose is True
     assert args.config == '/repotracker.ini'
     assert args.data == '/data.json'
 

@@ -756,7 +756,7 @@ def test_quay_token(get):
     Test that token is passed from config.
     """
     get.return_value.json.return_value = QUAY_API_DATA
-    result = container.check_repos(CONF, {})
+    container.check_repos(CONF, {})
     get.assert_called_once_with(
         'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
         headers={"Authorization": "Bearer TOKEN"}
@@ -771,7 +771,7 @@ def test_quay_token_missing(get):
     Test missing token in env but defined in config.
     """
     get.return_value.json.return_value = QUAY_API_DATA
-    result = container.check_repos(CONF, {})
+    container.check_repos(CONF, {})
     get.assert_called_once_with(
         'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
         headers={}
@@ -831,16 +831,16 @@ def test_quay_multipage(get):
     calls = [
         call(
             'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1',
-             headers={}
+            headers={},
         ),
         call(
             'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=2',
-             headers={}
+            headers={},
         ),
         call(
             'https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=3',
-             headers={}
-        )
+            headers={},
+        ),
     ]
     get.assert_has_calls(calls, any_order=True)
     assert result == {
