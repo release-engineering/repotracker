@@ -2,9 +2,9 @@ language: python
 python:
   - "3.8"
 install:
-  - pip install requests service_identity codecov
+  - pip install requests service_identity codecov flake8
 script:
-  - python setup.py flake8
+  - flake8
   - python setup.py test
 after_script:
   - codecov

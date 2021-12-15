@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright 2018 Mike Bonnet <mikeb@redhat.com>
 
-from unittest.mock import patch
 from repotracker import utils
 import json
+
 
 def test_load_config(tmpdir):
     """
@@ -38,7 +38,7 @@ def test_load_data_missing(tmpdir):
     Test that a missing or empty data file does not cause an error.
     """
     data = tmpdir.join('data')
-    assert data.check() == False
+    assert data.check() is False
     result = utils.load_data(str(data))
     assert result == {}
     data.ensure()
@@ -46,7 +46,7 @@ def test_load_data_missing(tmpdir):
     assert data.size() == 0
     result = utils.load_data(str(data))
     assert result == {}
-    
+
 
 def test_load_data(tmpdir):
     """
@@ -141,5 +141,5 @@ def test_format_time_empty():
     """
     Test that format_time() handles empty values correctly.
     """
-    assert utils.format_time(None) == None
-    assert utils.format_time('') == None
+    assert utils.format_time(None) is None
+    assert utils.format_time('') is None

@@ -2,6 +2,7 @@
 # Copyright 2018 Mike Bonnet <mikeb@redhat.com>
 # Logic for checking the state of container repos
 
+import os
 import subprocess
 import json
 import logging
@@ -12,7 +13,7 @@ from repotracker.utils import format_ts, format_time
 log = logging.getLogger(__name__)
 
 
-def inspect_repo(repo):
+def inspect_repo(repo, token=None):
     """
     Inspect the repo. Return a dict whose keys are tag names and whose values
     are dicts of data about the tag. The dicts will have at least the following
@@ -30,11 +31,14 @@ def inspect_repo(repo):
     if repo.startswith('quay.io'):
         # Use the quay.io REST API
         hostname, reponame = repo.split('/', 1)
+        headers = {}
+        if token:
+            headers["Authorization"] = "Bearer {0}".format(token)
         page = 1
         while True:
             url = 'https://{0}/api/v1/repository/{1}/tag/?onlyActiveTags=true&limit=100&page={2}'.\
                 format(hostname, reponame, page)
-            resp = requests.get(url)
+            resp = requests.get(url, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             for tag in data['tags']:
@@ -120,8 +124,11 @@ def check_repos(conf, data):
         if section_name == 'broker' or section.get('type') != 'container':
             continue
         repo = section['repo']
+        token = section.get('token_env')
+        if token:
+            token = os.environ.get(token)
         try:
-            tags = inspect_repo(repo)
+            tags = inspect_repo(repo, token)
         except:
             # Error communicating with the repo.
             # Assume it's a temporary error, reuse data from the previous run.

@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright 2018 Mike Bonnet <mikeb@redhat.com>
 
+import json
 from unittest.mock import MagicMock, patch, call
 producer_mock = MagicMock()
 patch.dict('sys.modules', values={'rhmsg.activemq.producer': producer_mock}).start()
-from repotracker import messaging
-import json
 
+from repotracker import messaging   # noqa: E402
 
 DATA = {
     'example.com/repos/testrepo': {
