@@ -1,4 +1,4 @@
-FROM fedora:35
+FROM fedora:34
 LABEL \
     name="repotracker" \
     vendor="EXD SP" \
