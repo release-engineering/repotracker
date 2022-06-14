@@ -61,14 +61,12 @@ def inspect_repo(repo, token=None):
         # Don't assume the repo has a :latest tag.
         # Record info for whatever skopeo wants to tell us when we don't specify a tag.
         default = inspect_tag(repo)
-        results[default['Tag']] = default
         tags = default['RepoTags']
         for tag in tags:
-            if tag not in results:
-                try:
-                    results[tag] = inspect_tag(repo, tag)
-                except:
-                    log.error('Could not query %s:%s', repo, tag, exc_info=True)
+            try:
+                results[tag] = inspect_tag(repo, tag=tag)
+            except:
+                log.error('Could not query %s:%s', repo, tag, exc_info=True)
     return results
 
 
@@ -80,11 +78,15 @@ def inspect_tag(repo, tag=None):
     If the repo is not accessible, or the tag does not exist, raise an
     exception.
     """
+    cmd = ['/usr/bin/skopeo', 'inspect']
     if tag:
         tag = ':' + tag
+        # If we're querying information about a specific tag, exclude the RepoTags list to improve performance.
+        cmd.append('--no-tags')
     else:
         tag = ''
-    proc = subprocess.run(['/usr/bin/skopeo', 'inspect', 'docker://{0}{1}'.format(repo, tag)],
+    cmd.append(f'docker://{repo}{tag}')
+    proc = subprocess.run(cmd,
                           stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE,
                           encoding='utf-8')

@@ -25,7 +25,6 @@ CONF = {
 RAW_DATA_1 = """
 {
     "Name": "example.com/repos/testrepo",
-    "Tag": "latest",
     "Digest": "sha256:ad2c57edd37de7c7e51baea3dbfb97e469034e098a15b3c91fa3dd3da63bf66e",
     "RepoTags": [
         "latest"
@@ -47,7 +46,6 @@ RAW_DATA_1 = """
 INSPECT_DATA_1 = json.loads(RAW_DATA_1)
 INSPECT_DATA_2 = {
     "Name": "example.com/repos/testrepo",
-    "Tag": "latest",
     "Digest": "sha256:8e69c47663d1f8d8f25322170a5211df912b409b0e8c92ffe1b365ee99d672ed",
     "RepoTags": [
         "latest",
@@ -109,7 +107,7 @@ def test_inspect_repo_raises(run):
         container.inspect_repo('example.com/repos/testrepo')
 
 
-@patch.dict(INSPECT_DATA_1, Tag='some-tag', RepoTags=['some-tag'])
+@patch.dict(INSPECT_DATA_1, RepoTags=['some-tag'])
 @patch.object(container.subprocess, 'run', autospec=True)
 def test_inspect_repo_no_latest(run):
     """
@@ -156,7 +154,11 @@ def test_check_repos_added(inspect_tag):
     Test that a new repo results in the correct output.
     """
     result = container.check_repos(CONF, {})
-    inspect_tag.assert_called_once_with('example.com/repos/testrepo')
+    assert inspect_tag.call_count == 2
+    inspect_tag.assert_has_calls([
+        call('example.com/repos/testrepo'),
+        call('example.com/repos/testrepo', tag='latest'),
+    ])
     assert result == {
         'example.com/repos/testrepo': {
             'latest': {
@@ -197,7 +199,11 @@ def test_check_repos_unchanged(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    inspect_tag.assert_called_once_with('example.com/repos/testrepo')
+    assert inspect_tag.call_count == 2
+    inspect_tag.assert_has_calls([
+        call('example.com/repos/testrepo'),
+        call('example.com/repos/testrepo', tag='latest'),
+    ])
     assert result == {
         'example.com/repos/testrepo': {
             'latest': {
@@ -239,7 +245,11 @@ def test_check_repos_unchanged_ignore(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    inspect_tag.assert_called_once_with('example.com/repos/testrepo')
+    assert inspect_tag.call_count == 2
+    inspect_tag.assert_has_calls([
+        call('example.com/repos/testrepo'),
+        call('example.com/repos/testrepo', tag='latest'),
+    ])
     assert result == {
         'example.com/repos/testrepo': {
             'latest': {
@@ -280,7 +290,11 @@ def test_check_repos_updated(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    inspect_tag.assert_called_once_with('example.com/repos/testrepo')
+    assert inspect_tag.call_count == 2
+    inspect_tag.assert_has_calls([
+        call('example.com/repos/testrepo'),
+        call('example.com/repos/testrepo', tag='latest'),
+    ])
     assert result == {
         'example.com/repos/testrepo': {
             'latest': {
@@ -333,7 +347,11 @@ def test_check_repos_removed(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    inspect_tag.assert_called_once_with('example.com/repos/testrepo')
+    assert inspect_tag.call_count == 2
+    inspect_tag.assert_has_calls([
+        call('example.com/repos/testrepo'),
+        call('example.com/repos/testrepo', tag='latest'),
+    ])
     assert result == {
         'example.com/repos/testrepo': {
             'latest': {
@@ -398,7 +416,11 @@ def test_check_repos_removed_previously(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    inspect_tag.assert_called_once_with('example.com/repos/testrepo')
+    assert inspect_tag.call_count == 2
+    inspect_tag.assert_has_calls([
+        call('example.com/repos/testrepo'),
+        call('example.com/repos/testrepo', tag='latest'),
+    ])
     assert result == {
         'example.com/repos/testrepo': {
             'latest': {
@@ -424,6 +446,7 @@ def test_check_repos_removed_race(run):
     Test that a tag that was removed after initial inspection results in the correct output.
     """
     run.side_effect = [
+        Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
         Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
         Mock(returncode=1, stderr='FATA[0001] Error reading manifest stage in example.com/repos/testrepo:'
              'manifest unknown: manifest unknown\n')
@@ -457,7 +480,7 @@ def test_check_repos_removed_race(run):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert run.call_count == 2
+    assert run.call_count == 3
     assert result == {
         'example.com/repos/testrepo': {
             'latest': {
@@ -496,6 +519,7 @@ def test_check_repos_removed_error(run):
     """
     run.side_effect = [
         Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
+        Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
         Mock(returncode=1, stderr='FATA[0001] Error reading manifest stage in example.com/repos/testrepo:'
              'some other error\n')
     ]
@@ -528,7 +552,7 @@ def test_check_repos_removed_error(run):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert run.call_count == 2
+    assert run.call_count == 3
     assert result == {
         'example.com/repos/testrepo': {
             'latest': {
@@ -568,6 +592,7 @@ def test_check_repos_ghost(run):
     """
     run.side_effect = [
         Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
+        Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
         Mock(returncode=1, stderr='FATA[0001] Error reading manifest stage in example.com/repos/testrepo:'
              'manifest unknown: manifest unknown\n')
     ]
@@ -588,7 +613,7 @@ def test_check_repos_ghost(run):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert run.call_count == 2
+    assert run.call_count == 3
     assert result == {
         'example.com/repos/testrepo': {
             'latest': {
@@ -630,7 +655,11 @@ def test_check_repos_readded(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    inspect_tag.assert_called_once_with('example.com/repos/testrepo')
+    assert inspect_tag.call_count == 2
+    inspect_tag.assert_has_calls([
+        call('example.com/repos/testrepo'),
+        call('example.com/repos/testrepo', tag='latest'),
+    ])
     assert result == {
         'example.com/repos/testrepo': {
             'latest': {
