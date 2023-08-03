@@ -11,7 +11,7 @@ import datetime
 import re
 
 
-FRACTIONAL_SECONDS_RE = re.compile(r'\.\d+(\w*)$')
+FRACTIONAL_SECONDS_RE = re.compile(r"\.\d+(\w*)$")
 
 
 def load_config(path):
@@ -30,7 +30,7 @@ def load_data(path):
 
 def save_data(path, data):
     with tempfile.NamedTemporaryFile(dir=os.path.dirname(path), delete=False) as fobj:
-        fobj.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+        fobj.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
     os.chmod(fobj.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
     os.replace(fobj.name, path)
 
@@ -41,7 +41,7 @@ def format_ts(ts):
     Example: 2019-04-23T16:12:07Z
     """
     dobj = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc)
-    return dobj.strftime('%Y-%m-%dT%H:%M:%SZ')
+    return dobj.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def format_time(timestr):
@@ -52,4 +52,4 @@ def format_time(timestr):
     if not timestr:
         return None
     # Just trim off any fractional seconds.
-    return FRACTIONAL_SECONDS_RE.sub(r'\1', timestr)
+    return FRACTIONAL_SECONDS_RE.sub(r"\1", timestr)
