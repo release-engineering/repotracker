@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["repotracker*"]
+namespaces = false
+
+[project]
+name = "repotracker"
+authors = [
+    {name = "Mike Bonnet", email = "mikeb@redhat.com"},
+]
+maintainers = [
+    {name = "Jakub Micanek", email = "jmicanek@redhat.com"}
+]
+description = "A microservice for tracking container repositories, and publishing a message when they change"
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["container", "tracking"]
+license = {text = "GPLv3"}
+urls = { code = "https://github.com/release-engineering/repotracker" }
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "requests",
+    'service_identity',
+]
+version="0.1.0"
+
+[project.scripts]
+repotracker = "repotracker.cli:main"
+
+

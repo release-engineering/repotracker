@@ -13,7 +13,7 @@ Branch | Status | Coverage
 master | [![Build Status - master branch][travisbadge]][travis] | [![Code Coverage - master branch][codecovbadge]][codecov]
 
 ## Running the Tests
-
-    $ python3 setup.py test
-    # also check flake8 before committing
-    $ python3 setup.py flake8
+    # Run unit tests and linters
+    $ tox
+    # Run black formatter
+    $ tox -e black
