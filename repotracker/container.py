@@ -9,13 +9,13 @@ import logging
 import requests
 from repotracker.utils import format_ts, format_time
 
-
 log = logging.getLogger(__name__)
 
 
-def inspect_repo(repo, token=None):
+def inspect_quay_repo(repo, token=None):
     """
-    Inspect the repo. Return a dict whose keys are tag names and whose values
+    Inspect the repo using Quay REST API. This is much faster than using SKOPEO.
+    Return a dict whose keys are tag names and whose values
     are dicts of data about the tag. The dicts will have at least the following
     keys:
     - Name: name of the repo
@@ -28,46 +28,63 @@ def inspect_repo(repo, token=None):
     - Architecture: the processor architecture of the image
     """
     results = {}
-    if repo.startswith("quay.io"):
-        # Use the quay.io REST API
-        hostname, reponame = repo.split("/", 1)
-        headers = {}
-        if token:
-            headers["Authorization"] = "Bearer {0}".format(token)
-        page = 1
-        while True:
-            url = "https://{0}/api/v1/repository/{1}/tag/?onlyActiveTags=true&limit=100&page={2}".format(
-                hostname, reponame, page
-            )
-            resp = requests.get(url, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
-            for tag in data["tags"]:
-                if tag["name"] not in results:
-                    results[tag["name"]] = {
-                        "Name": repo,
-                        "Tag": tag["name"],
-                        "Digest": tag["manifest_digest"],
-                        "Created": format_ts(tag["start_ts"]),
-                        "Labels": {},
-                        "Os": "",
-                        "Architecture": "",
-                    }
-            if not data["has_additional"]:
-                break
-            page += 1
-    else:
-        # Use skopeo
-        tags = []
-        # Don't assume the repo has a :latest tag.
-        # Record info for whatever skopeo wants to tell us when we don't specify a tag.
-        default = inspect_tag(repo)
-        tags = default["RepoTags"]
-        for tag in tags:
-            try:
-                results[tag] = inspect_tag(repo, tag=tag)
-            except:
-                log.error("Could not query %s:%s", repo, tag, exc_info=True)
+    # Use the quay.io REST API
+    hostname, reponame = repo.split("/", 1)
+    headers = {}
+    if token:
+        headers["Authorization"] = "Bearer {0}".format(token)
+    page = 1
+    while True:
+        url = "https://{0}/api/v1/repository/{1}/tag/?onlyActiveTags=true&limit=100&page={2}".format(
+            hostname, reponame, page
+        )
+        resp = requests.get(url, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
+        for tag in data["tags"]:
+            if tag["name"] not in results:
+                results[tag["name"]] = {
+                    "Name": repo,
+                    "Tag": tag["name"],
+                    "Digest": tag["manifest_digest"],
+                    "Created": format_ts(tag["start_ts"]),
+                    "Labels": {},
+                    "Os": "",
+                    "Architecture": "",
+                }
+        if not data["has_additional"]:
+            break
+        page += 1
+    return results
+
+
+def inspect_image_repo(repo, token=None):
+    """
+    Inspect a generic repo using SKOPEO. Much slower than QUAY API, but should handle any repo.
+    Return a dict whose keys are tag names and whose values
+    are dicts of data about the tag. The dicts will have at least the following
+    keys:
+    - Name: name of the repo
+    - Tag: name of the tag
+    - Digest: checksum:digest of the image
+    - Created: timestamp when the tag was created or last updated, in ISO 8601
+               combined format in UTC
+    - Labels: a list of labels on the image
+    - Os: the operating system of the image
+    - Architecture: the processor architecture of the image
+    """
+    results = {}
+    # Use skopeo
+    tags = []
+    # Don't assume the repo has a :latest tag.
+    # Record info for whatever skopeo wants to tell us when we don't specify a tag.
+    default = inspect_tag(repo)
+    tags = default["RepoTags"]
+    for tag in tags:
+        try:
+            results[tag] = inspect_tag(repo, tag=tag)
+        except:
+            log.error("Could not query %s:%s", repo, tag, exc_info=True)
     return results
 
 
@@ -124,6 +141,9 @@ def check_repos(conf, data):
     'added', 'updated', or 'removed', relative to the data provided.
     """
     new_data = {}
+    quay_repos = ["quay.io"]
+    if "quayrepos" in conf:
+        quay_repos = conf["quayrepos"].get("repos").split(",")
     for section_name, section in conf.items():
         if section_name == "broker" or section.get("type") != "container":
             continue
@@ -132,7 +152,11 @@ def check_repos(conf, data):
         if token:
             token = os.environ.get(token)
         try:
-            tags = inspect_repo(repo, token)
+            # Use Quay API for known Quay registries
+            if repo.startswith(tuple(quay_repos)):
+                tags = inspect_quay_repo(repo, token)
+            else:
+                tags = inspect_image_repo(repo, token)
         except:
             # Error communicating with the repo.
             # Assume it's a temporary error, reuse data from the previous run.
