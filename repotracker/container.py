@@ -9,6 +9,9 @@ import logging
 import requests
 from repotracker.utils import format_ts, format_time
 
+from concurrent.futures import ThreadPoolExecutor
+from itertools import repeat
+
 log = logging.getLogger(__name__)
 
 
@@ -80,11 +83,13 @@ def inspect_image_repo(repo, token=None):
     # Record info for whatever skopeo wants to tell us when we don't specify a tag.
     default = inspect_tag(repo)
     tags = default["RepoTags"]
-    for tag in tags:
-        try:
-            results[tag] = inspect_tag(repo, tag=tag)
-        except:
-            log.error("Could not query %s:%s", repo, tag, exc_info=True)
+    with ThreadPoolExecutor(max_workers=60) as executor:
+        # submit tasks and process results
+        for result in executor.map(inspect_tag, repeat(repo), tags):
+            try:
+                results[result.get("tag")] = result
+            except:
+                log.error("Could not query %s:%s", repo, result.tag, exc_info=True)
     return results
 
 
@@ -114,7 +119,10 @@ def inspect_tag(repo, tag=None):
         raise RuntimeError(
             "Error inspecting {0}:{1}: {2}".format(repo, tag, proc.stderr)
         )
-    return json.loads(proc.stdout)
+    result = json.loads(proc.stdout)
+    if tag:
+        result["tag"] = tag
+    return result
 
 
 def gen_result(repo, tag, tagdata):
