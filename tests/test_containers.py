@@ -21,6 +21,9 @@ CONF = {
         "type": "container",
         "repo": "example.com/repos/testrepo",
     },
+    "quayrepos": {
+        "repos": "quay.io",
+    },
 }
 RAW_DATA_1 = """
 {
@@ -100,22 +103,22 @@ def test_inspect_tag_raises(run):
 @patch.object(container.subprocess, "run", autospec=True)
 def test_inspect_repo_raises(run):
     """
-    Test that inspect_repo() raises an exception on an error when first querying the repo.
+    Test that inspect_image_repo() raises an exception on an error when first querying the repo.
     """
     run.return_value.returncode = 1
     with pytest.raises(RuntimeError):
-        container.inspect_repo("example.com/repos/testrepo")
+        container.inspect_image_repo("example.com/repos/testrepo")
 
 
 @patch.dict(INSPECT_DATA_1, RepoTags=["some-tag"])
 @patch.object(container.subprocess, "run", autospec=True)
 def test_inspect_repo_no_latest(run):
     """
-    Test that inspect_repo() against a repo with no :latest tag returns the correct results.
+    Test that inspect_image_repo() against a repo with no :latest tag returns the correct results.
     """
     run.return_value.returncode = 0
     run.return_value.stdout = json.dumps(INSPECT_DATA_1)
-    result = container.inspect_repo("example.com/repos/testrepo")
+    result = container.inspect_image_repo("example.com/repos/testrepo")
     assert result == {"some-tag": INSPECT_DATA_1}
 
 
@@ -790,6 +793,37 @@ def test_quay_latest(get):
             "latest": {
                 "action": "added",
                 "repo": "quay.io/repos/testrepo",
+                "reponame": "testrepo",
+                "tag": "latest",
+                "digest": QUAY_API_DATA["tags"][0]["manifest_digest"],
+                "old_digest": None,
+                "created": format_ts(QUAY_API_DATA["tags"][0]["start_ts"]),
+                "labels": {},
+                "os": "",
+                "arch": "",
+            }
+        }
+    }
+
+
+@patch.dict(CONF["quayrepos"], repos="quay-like.io")
+@patch.dict(CONF["test"], repo="quay-like.io/repos/testrepo")
+@patch.object(container.requests, "get", autospec=True)
+def test_quay_repo_detection(get):
+    """
+    Test that custom quay instances passed via config are inspected via Quay API
+    """
+    get.return_value.json.return_value = QUAY_API_DATA
+    result = container.check_repos(CONF, {})
+    get.assert_called_once_with(
+        "https://quay-like.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1",
+        headers={},
+    )
+    assert result == {
+        "quay-like.io/repos/testrepo": {
+            "latest": {
+                "action": "added",
+                "repo": "quay-like.io/repos/testrepo",
                 "reponame": "testrepo",
                 "tag": "latest",
                 "digest": QUAY_API_DATA["tags"][0]["manifest_digest"],
