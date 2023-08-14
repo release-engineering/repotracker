@@ -75,38 +75,22 @@ def inspect_image_repo(repo, token=None):
     """
     results = {}
     # Use skopeo
-    tags = []
-    # Don't assume the repo has a :latest tag.
-    # Record info for whatever skopeo wants to tell us when we don't specify a tag.
-    default = inspect_tag(repo)
-    tags = default["RepoTags"]
-    for tag in tags:
+    for tag in list_tags(repo):
         try:
-            results[tag] = inspect_tag(repo, tag=tag)
+            results[tag] = inspect_tag(repo, tag)
         except:
             log.error("Could not query %s:%s", repo, tag, exc_info=True)
     return results
 
 
-def inspect_tag(repo, tag=None):
+def inspect_tag(repo, tag):
     """
-    Inspect the contents of the tag within the given repo. If no tag is specified,
-    skopeo should inspect the default tag.
+    Inspect the contents of the tag within the given repo.
     Returns a dict describing the image referenced by the given tag.
     If the repo is not accessible, or the tag does not exist, raise an
     exception.
     """
-    cmd = ["/usr/bin/skopeo", "inspect"]
-    if tag:
-        tag = ":" + tag
-        # If we're querying information about a specific tag, exclude the RepoTags list to improve performance.
-        cmd.append("--no-tags")
-    else:
-        tag = ""
-    cmd.append(f"docker://{repo}{tag}")
-    proc = subprocess.run(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8"
-    )
+    proc = skopeo_run(f"{repo}:{tag}", "inspect", "--no-tags")
     if proc.returncode:
         if "manifest unknown" in proc.stderr:
             # This tag has been deleted, which is represented by an empty dict.
@@ -115,6 +99,28 @@ def inspect_tag(repo, tag=None):
             "Error inspecting {0}:{1}: {2}".format(repo, tag, proc.stderr)
         )
     return json.loads(proc.stdout)
+
+
+def list_tags(repo):
+    """
+    List the tags available in the given repo.
+    If the repo is not available, raise an exception.
+    """
+    proc = skopeo_run(repo, "list-tags")
+    if proc.returncode:
+        raise RuntimeError(f"Error listing tags for {repo}: {proc.stderr}")
+    return json.loads(proc.stdout)["Tags"]
+
+
+def skopeo_run(reporef, *args):
+    """
+    Run skopeo with the given args, against the given repo reference.
+    Return the CompletedProcess object associated with the skopeo command.
+    """
+    cmd = ["/usr/bin/skopeo", *args, f"docker://{reporef}"]
+    return subprocess.run(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8"
+    )
 
 
 def gen_result(repo, tag, tagdata):
