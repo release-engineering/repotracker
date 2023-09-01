@@ -16,4 +16,4 @@ master | [![Build Status - master branch][travisbadge]][travis] | [![Code Covera
 
     $ python3 setup.py test
     # also check flake8 before committing
-    $ python3 setup.py flake8
+    $ python3 setup.py flake8 test
