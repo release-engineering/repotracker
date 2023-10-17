@@ -18,8 +18,7 @@ ARG RHMSG_DEPTH="10"
 
 CMD ["/usr/bin/repotracker"]
 
-ADD https://certs.corp.redhat.com/certs/2022-IT-Root-CA.pem \
-    https://certs.corp.redhat.com/certs/2015-IT-Root-CA.pem \
+ADD https://certs.corp.redhat.com/certs/Current-IT-Root-CAs.pem \
     /etc/pki/ca-trust/source/anchors/
 RUN update-ca-trust
 
