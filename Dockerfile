@@ -11,6 +11,7 @@ LABEL \
 ARG DNF_CMD="dnf -y --repo=fedora,updates --setopt=deltarpm=False --setopt=install_weak_deps=False --setopt=tsflags=nodocs"
 ARG PIP_CMD="python3 -m pip install -v --no-build-isolation --no-cache-dir --prefix=/usr --compile"
 
+ARG RHMSG_REPO="https://gitlab.cee.redhat.com/exd-guild-messaging/rhmsg.git"
 ARG RHMSG_REF="refs/heads/master"
 ARG RHMSG_COMMIT="FETCH_HEAD"
 ARG RHMSG_DEPTH="10"
@@ -29,7 +30,7 @@ RUN ${DNF_CMD} install python3-pip python3-setuptools python3-wheel \
 
 WORKDIR /src/rhmsg
 RUN git init . && \
-    git fetch --depth=$RHMSG_DEPTH https://gitlab.cee.redhat.com/exd-guild-messaging/rhmsg.git \
+    git fetch --depth=$RHMSG_DEPTH $RHMSG_REPO \
         "${RHMSG_REF}:refs/remotes/origin/${RHMSG_REF##*/}" && \
     git checkout "$RHMSG_COMMIT"
 RUN $PIP_CMD .
