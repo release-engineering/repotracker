@@ -11,14 +11,14 @@ LABEL \
 ARG DNF_CMD="dnf -y --repo=fedora,updates --setopt=deltarpm=False --setopt=install_weak_deps=False --setopt=tsflags=nodocs"
 ARG PIP_CMD="python3 -m pip install -v --no-build-isolation --no-cache-dir --prefix=/usr --compile"
 
+ARG RHMSG_REPO="https://gitlab.cee.redhat.com/exd-guild-messaging/rhmsg.git"
 ARG RHMSG_REF="refs/heads/master"
 ARG RHMSG_COMMIT="FETCH_HEAD"
 ARG RHMSG_DEPTH="10"
 
 CMD ["/usr/bin/repotracker"]
 
-ADD https://certs.corp.redhat.com/certs/2022-IT-Root-CA.pem \
-    https://certs.corp.redhat.com/certs/2015-IT-Root-CA.pem \
+ADD https://certs.corp.redhat.com/certs/Current-IT-Root-CAs.pem \
     /etc/pki/ca-trust/source/anchors/
 RUN update-ca-trust
 
@@ -29,7 +29,7 @@ RUN ${DNF_CMD} install python3-pip python3-setuptools python3-wheel \
 
 WORKDIR /src/rhmsg
 RUN git init . && \
-    git fetch --depth=$RHMSG_DEPTH https://gitlab.cee.redhat.com/exd-guild-messaging/rhmsg.git \
+    git fetch --depth=$RHMSG_DEPTH $RHMSG_REPO \
         "${RHMSG_REF}:refs/remotes/origin/${RHMSG_REF##*/}" && \
     git checkout "$RHMSG_COMMIT"
 RUN $PIP_CMD .
