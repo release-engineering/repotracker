@@ -29,9 +29,7 @@ RAW_DATA_1 = """
 {
     "Name": "example.com/repos/testrepo",
     "Digest": "sha256:ad2c57edd37de7c7e51baea3dbfb97e469034e098a15b3c91fa3dd3da63bf66e",
-    "RepoTags": [
-        "latest"
-    ],
+    "RepoTags": [],
     "Created": "2018-10-26T00:07:54.904635308Z",
     "DockerVersion": "17.09.0-ce",
     "Labels": {
@@ -50,9 +48,7 @@ INSPECT_DATA_1 = json.loads(RAW_DATA_1)
 INSPECT_DATA_2 = {
     "Name": "example.com/repos/testrepo",
     "Digest": "sha256:8e69c47663d1f8d8f25322170a5211df912b409b0e8c92ffe1b365ee99d672ed",
-    "RepoTags": [
-        "latest",
-    ],
+    "RepoTags": [],
     "Created": "2018-10-27T00:08:23.904635308Z",
     "DockerVersion": "17.09.0-ce",
     "Labels": {
@@ -66,6 +62,17 @@ INSPECT_DATA_2 = {
         "sha256:aecae378e09ee01f6976750bc840ee596b204bb35d7d121037021cbc927fcd7b",
     ],
 }
+TAG_DATA = """
+{
+    "Repository": "example.com/repos/testrepo",
+    "Tags": [
+        "latest",
+        "master",
+        "stage",
+        "prod"
+    ]
+}
+"""
 
 
 @patch.object(container.subprocess, "run", autospec=True)
@@ -76,17 +83,6 @@ def test_inspect_tag(run):
     run.return_value.returncode = 0
     run.return_value.stdout = RAW_DATA_1
     result = container.inspect_tag("example.com/repos/testrepo", "latest")
-    assert result == INSPECT_DATA_1
-
-
-@patch.object(container.subprocess, "run", autospec=True)
-def test_inspect_tag_no_tag(run):
-    """
-    Test that inspect_tag() with no tag name returns the correct output.
-    """
-    run.return_value.returncode = 0
-    run.return_value.stdout = RAW_DATA_1
-    result = container.inspect_tag("example.com/repos/testrepo")
     assert result == INSPECT_DATA_1
 
 
@@ -110,15 +106,16 @@ def test_inspect_repo_raises(run):
         container.inspect_image_repo("example.com/repos/testrepo")
 
 
-@patch.dict(INSPECT_DATA_1, RepoTags=["some-tag"])
+@patch.object(container, "list_tags", autospec=True, return_value=["some-tag"])
 @patch.object(container.subprocess, "run", autospec=True)
-def test_inspect_repo_no_latest(run):
+def test_inspect_repo_no_latest(run, list_tags):
     """
     Test that inspect_image_repo() against a repo with no :latest tag returns the correct results.
     """
     run.return_value.returncode = 0
     run.return_value.stdout = json.dumps(INSPECT_DATA_1)
     result = container.inspect_image_repo("example.com/repos/testrepo")
+    list_tags.assert_called_once_with("example.com/repos/testrepo")
     assert result == {"some-tag": INSPECT_DATA_1}
 
 
@@ -141,32 +138,28 @@ def test_gen_result_null():
 
 @patch.object(
     container,
-    "inspect_tag",
+    "list_tags",
     autospec=True,
     side_effect=RuntimeError("could not inspect repo"),
 )
-def test_check_repos_raises(inspect_tag):
+def test_check_repos_raises(list_tags):
     """
     Test that an error inspecting the repo results in the correct output.
     """
     result = container.check_repos(CONF, {})
-    inspect_tag.assert_called_once_with("example.com/repos/testrepo")
+    list_tags.assert_called_once_with("example.com/repos/testrepo")
     assert result == {}
 
 
+@patch.object(container, "list_tags", autospec=True, return_value=["latest"])
 @patch.object(container, "inspect_tag", autospec=True, return_value=INSPECT_DATA_1)
-def test_check_repos_added(inspect_tag):
+def test_check_repos_added(inspect_tag, list_tags):
     """
     Test that a new repo results in the correct output.
     """
     result = container.check_repos(CONF, {})
-    assert inspect_tag.call_count == 2
-    inspect_tag.assert_has_calls(
-        [
-            call("example.com/repos/testrepo"),
-            call("example.com/repos/testrepo", tag="latest"),
-        ]
-    )
+    list_tags.assert_called_once_with("example.com/repos/testrepo")
+    inspect_tag.assert_called_once_with("example.com/repos/testrepo", "latest")
     assert result == {
         "example.com/repos/testrepo": {
             "latest": {
@@ -185,8 +178,9 @@ def test_check_repos_added(inspect_tag):
     }
 
 
+@patch.object(container, "list_tags", autospec=True, return_value=["latest"])
 @patch.object(container, "inspect_tag", autospec=True, return_value=INSPECT_DATA_1)
-def test_check_repos_unchanged(inspect_tag):
+def test_check_repos_unchanged(inspect_tag, list_tags):
     """
     Test that an unchanged repo results in the correct output.
     """
@@ -207,13 +201,8 @@ def test_check_repos_unchanged(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert inspect_tag.call_count == 2
-    inspect_tag.assert_has_calls(
-        [
-            call("example.com/repos/testrepo"),
-            call("example.com/repos/testrepo", tag="latest"),
-        ]
-    )
+    list_tags.assert_called_once_with("example.com/repos/testrepo")
+    inspect_tag.assert_called_once_with("example.com/repos/testrepo", "latest")
     assert result == {
         "example.com/repos/testrepo": {
             "latest": {
@@ -232,8 +221,9 @@ def test_check_repos_unchanged(inspect_tag):
     }
 
 
+@patch.object(container, "list_tags", autospec=True, return_value=["latest"])
 @patch.object(container, "inspect_tag", autospec=True, return_value=INSPECT_DATA_1)
-def test_check_repos_unchanged_ignore(inspect_tag):
+def test_check_repos_unchanged_ignore(inspect_tag, list_tags):
     """
     Test that the 'ignore' flag is correctly ignored.
     """
@@ -255,13 +245,8 @@ def test_check_repos_unchanged_ignore(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert inspect_tag.call_count == 2
-    inspect_tag.assert_has_calls(
-        [
-            call("example.com/repos/testrepo"),
-            call("example.com/repos/testrepo", tag="latest"),
-        ]
-    )
+    list_tags.assert_called_once_with("example.com/repos/testrepo")
+    inspect_tag.assert_called_once_with("example.com/repos/testrepo", "latest")
     assert result == {
         "example.com/repos/testrepo": {
             "latest": {
@@ -280,8 +265,9 @@ def test_check_repos_unchanged_ignore(inspect_tag):
     }
 
 
+@patch.object(container, "list_tags", autospec=True, return_value=["latest"])
 @patch.object(container, "inspect_tag", autospec=True, return_value=INSPECT_DATA_2)
-def test_check_repos_updated(inspect_tag):
+def test_check_repos_updated(inspect_tag, list_tags):
     """
     Test that an updated repo results in the correct output.
     """
@@ -302,13 +288,8 @@ def test_check_repos_updated(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert inspect_tag.call_count == 2
-    inspect_tag.assert_has_calls(
-        [
-            call("example.com/repos/testrepo"),
-            call("example.com/repos/testrepo", tag="latest"),
-        ]
-    )
+    list_tags.assert_called_once_with("example.com/repos/testrepo")
+    inspect_tag.assert_called_once_with("example.com/repos/testrepo", "latest")
     assert result == {
         "example.com/repos/testrepo": {
             "latest": {
@@ -327,8 +308,9 @@ def test_check_repos_updated(inspect_tag):
     }
 
 
+@patch.object(container, "list_tags", autospec=True, return_value=["latest"])
 @patch.object(container, "inspect_tag", autospec=True, return_value=INSPECT_DATA_1)
-def test_check_repos_removed(inspect_tag):
+def test_check_repos_removed(inspect_tag, list_tags):
     """
     Test that a removed tag results in the correct output.
     """
@@ -361,13 +343,8 @@ def test_check_repos_removed(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert inspect_tag.call_count == 2
-    inspect_tag.assert_has_calls(
-        [
-            call("example.com/repos/testrepo"),
-            call("example.com/repos/testrepo", tag="latest"),
-        ]
-    )
+    list_tags.assert_called_once_with("example.com/repos/testrepo")
+    inspect_tag.assert_called_once_with("example.com/repos/testrepo", "latest")
     assert result == {
         "example.com/repos/testrepo": {
             "latest": {
@@ -398,8 +375,9 @@ def test_check_repos_removed(inspect_tag):
     }
 
 
+@patch.object(container, "list_tags", autospec=True, return_value=["latest"])
 @patch.object(container, "inspect_tag", autospec=True, return_value=INSPECT_DATA_1)
-def test_check_repos_removed_previously(inspect_tag):
+def test_check_repos_removed_previously(inspect_tag, list_tags):
     """
     Test that a previously removed tag doesn't stay in the results.
     """
@@ -432,13 +410,8 @@ def test_check_repos_removed_previously(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert inspect_tag.call_count == 2
-    inspect_tag.assert_has_calls(
-        [
-            call("example.com/repos/testrepo"),
-            call("example.com/repos/testrepo", tag="latest"),
-        ]
-    )
+    list_tags.assert_called_once_with("example.com/repos/testrepo")
+    inspect_tag.assert_called_once_with("example.com/repos/testrepo", "latest")
     assert result == {
         "example.com/repos/testrepo": {
             "latest": {
@@ -457,14 +430,13 @@ def test_check_repos_removed_previously(inspect_tag):
     }
 
 
-@patch.dict(INSPECT_DATA_1, RepoTags=["latest", "stage"])
+@patch.object(container, "list_tags", autospec=True, return_value=["latest", "stage"])
 @patch.object(container.subprocess, "run", autospec=True)
-def test_check_repos_removed_race(run):
+def test_check_repos_removed_race(run, list_tags):
     """
     Test that a tag that was removed after initial inspection results in the correct output.
     """
     run.side_effect = [
-        Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
         Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
         Mock(
             returncode=1,
@@ -501,7 +473,7 @@ def test_check_repos_removed_race(run):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert run.call_count == 3
+    assert run.call_count == 2
     assert result == {
         "example.com/repos/testrepo": {
             "latest": {
@@ -532,14 +504,13 @@ def test_check_repos_removed_race(run):
     }
 
 
-@patch.dict(INSPECT_DATA_1, RepoTags=["latest", "stage"])
+@patch.object(container, "list_tags", autospec=True, return_value=["latest", "stage"])
 @patch.object(container.subprocess, "run", autospec=True)
-def test_check_repos_removed_error(run):
+def test_check_repos_removed_error(run, list_tags):
     """
     Test that a tag that throws an error after initial inspection results in the correct output.
     """
     run.side_effect = [
-        Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
         Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
         Mock(
             returncode=1,
@@ -576,7 +547,7 @@ def test_check_repos_removed_error(run):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert run.call_count == 3
+    assert run.call_count == 2
     assert result == {
         "example.com/repos/testrepo": {
             "latest": {
@@ -607,15 +578,14 @@ def test_check_repos_removed_error(run):
     }
 
 
-@patch.dict(INSPECT_DATA_1, RepoTags=["latest", "stage"])
+@patch.object(container, "list_tags", autospec=True, return_value=["latest", "stage"])
 @patch.object(container.subprocess, "run", autospec=True)
-def test_check_repos_ghost(run):
+def test_check_repos_ghost(run, list_tags):
     """
     Test that a tag that appeared in the RepoTags list, but no longer exists, and isn't present
     in the data from the previous run, results in the correct output.
     """
     run.side_effect = [
-        Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
         Mock(returncode=0, stdout=json.dumps(INSPECT_DATA_1)),
         Mock(
             returncode=1,
@@ -640,7 +610,7 @@ def test_check_repos_ghost(run):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert run.call_count == 3
+    assert run.call_count == 2
     assert result == {
         "example.com/repos/testrepo": {
             "latest": {
@@ -659,8 +629,9 @@ def test_check_repos_ghost(run):
     }
 
 
+@patch.object(container, "list_tags", autospec=True, return_value=["latest"])
 @patch.object(container, "inspect_tag", autospec=True, return_value=INSPECT_DATA_1)
-def test_check_repos_readded(inspect_tag):
+def test_check_repos_readded(inspect_tag, list_tags):
     """
     Test that a repo that is readded immediately after it was removed results in
     a "added" message, and not an "updated" message.
@@ -682,13 +653,8 @@ def test_check_repos_readded(inspect_tag):
         }
     }
     result = container.check_repos(CONF, old_data)
-    assert inspect_tag.call_count == 2
-    inspect_tag.assert_has_calls(
-        [
-            call("example.com/repos/testrepo"),
-            call("example.com/repos/testrepo", tag="latest"),
-        ]
-    )
+    list_tags.assert_called_once_with("example.com/repos/testrepo")
+    inspect_tag.assert_called_once_with("example.com/repos/testrepo", "latest")
     assert result == {
         "example.com/repos/testrepo": {
             "latest": {
@@ -705,6 +671,46 @@ def test_check_repos_readded(inspect_tag):
             }
         }
     }
+
+
+@patch.object(container.subprocess, "run")
+def test_list_tags(run):
+    """
+    Test that list_tags() returns the correct data.
+    """
+    run.return_value.returncode = 0
+    run.return_value.stdout = TAG_DATA
+    result = container.list_tags("example.com/repos/testrepo")
+    assert run.called_once_with(
+        call(["/usr/bin/skopeo", "list-tags", "docker://example.com/repos/testrepo"])
+    )
+    assert result == json.loads(TAG_DATA)["Tags"]
+
+
+@patch.object(container.subprocess, "run")
+def test_list_tags_error(run):
+    """
+    Test that list_tags() handles a run() error correctly.
+    """
+    run.return_value.returncode = 1
+    with pytest.raises(
+        RuntimeError, match="Error listing tags for example.com/repos/testrepo:"
+    ):
+        container.list_tags("example.com/repos/testrepo")
+
+
+@patch.object(container.subprocess, "run")
+def test_skopeo_run(run):
+    """
+    Test that skopeo_run works as expected.
+    """
+    container.skopeo_run("example.com/repos/testrepo", "foo")
+    run.assert_called_once()
+    assert run.call_args.args[0] == [
+        "/usr/bin/skopeo",
+        "foo",
+        "docker://example.com/repos/testrepo",
+    ]
 
 
 # Test use of the quay.io API
