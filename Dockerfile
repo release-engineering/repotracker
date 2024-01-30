@@ -16,26 +16,34 @@ ARG RHMSG_REF="refs/heads/master"
 ARG RHMSG_COMMIT="FETCH_HEAD"
 ARG RHMSG_DEPTH="10"
 
+ENV \
+    PIP_DEFAULT_TIMEOUT=300 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONFAULTHANDLER=1 \
+    PYTHONUNBUFFERED=1 \
+    REQUESTS_CA_BUNDLE=/etc/pki/tls/cert.pem
+
 CMD ["/usr/bin/repotracker"]
 
 ADD https://certs.corp.redhat.com/certs/Current-IT-Root-CAs.pem \
     /etc/pki/ca-trust/source/anchors/
 RUN update-ca-trust
 
-RUN ${DNF_CMD} install python3-pip python3-setuptools python3-wheel \
-                       python3-requests python3-service-identity python3-idna python-idna-ssl python3-qpid-proton \
-                       git-core skopeo && \
-    dnf -y clean all
+RUN $DNF_CMD install python3-pip \
+                     python3-qpid-proton git-core skopeo && \
+    $DNF_CMD clean all
+RUN $PIP_CMD --upgrade setuptools setuptools_scm wheel
+
+WORKDIR /src/repotracker
+COPY . .
+RUN $PIP_CMD -r requirements.txt
+RUN $PIP_CMD --no-deps .
 
 WORKDIR /src/rhmsg
 RUN git init . && \
     git fetch --depth=$RHMSG_DEPTH $RHMSG_REPO \
         "${RHMSG_REF}:refs/remotes/origin/${RHMSG_REF##*/}" && \
     git checkout "$RHMSG_COMMIT"
-RUN $PIP_CMD .
-
-WORKDIR /src/repotracker
-COPY . .
 RUN $PIP_CMD .
 
 WORKDIR /
