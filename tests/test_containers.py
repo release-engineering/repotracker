@@ -681,8 +681,11 @@ def test_list_tags(run):
     run.return_value.returncode = 0
     run.return_value.stdout = TAG_DATA
     result = container.list_tags("example.com/repos/testrepo")
-    assert run.called_once_with(
-        call(["/usr/bin/skopeo", "list-tags", "docker://example.com/repos/testrepo"])
+    run.assert_called_once_with(
+        ["/usr/bin/skopeo", "list-tags", "docker://example.com/repos/testrepo"],
+        stdout=-1,
+        stderr=-1,
+        encoding="utf-8",
     )
     assert result == json.loads(TAG_DATA)["Tags"]
 
