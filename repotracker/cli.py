@@ -28,6 +28,7 @@ def get_args():
         help="File used to record repo state",
         default="/var/lib/repotracker/containers/repotracker-containers.json",
     )
+    print('Parsed!')
     return parser.parse_args()
 
 
