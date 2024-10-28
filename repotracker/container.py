@@ -7,6 +7,7 @@ import subprocess
 import json
 import logging
 import requests
+import datetime
 from repotracker.utils import format_ts, format_time
 
 log = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ def inspect_quay_repo(repo, token=None):
     headers = {}
     if token:
         headers["Authorization"] = "Bearer {0}".format(token)
+    start = datetime.datetime.now()
     page = 1
     while True:
         url = "https://{0}/api/v1/repository/{1}/tag/?onlyActiveTags=true&limit=100&page={2}".format(
@@ -55,6 +57,9 @@ def inspect_quay_repo(repo, token=None):
         if not data["has_additional"]:
             break
         page += 1
+    log.info(
+        "Retrieved tag information for %s in %s", repo, datetime.datetime.now() - start
+    )
     return results
 
 
@@ -118,9 +123,12 @@ def skopeo_run(reporef, *args):
     Return the CompletedProcess object associated with the skopeo command.
     """
     cmd = ["/usr/bin/skopeo", *args, f"docker://{reporef}"]
-    return subprocess.run(
+    start = datetime.datetime.now()
+    proc = subprocess.run(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8"
     )
+    log.info('Ran "%s" in %s', " ".join(cmd), datetime.datetime.now() - start)
+    return proc
 
 
 def gen_result(repo, tag, tagdata):
