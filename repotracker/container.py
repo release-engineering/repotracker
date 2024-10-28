@@ -6,11 +6,24 @@ import os
 import subprocess
 import json
 import logging
-import requests
 import datetime
+from requests import Session
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 from repotracker.utils import format_ts, format_time
 
 log = logging.getLogger(__name__)
+
+
+def get_session():
+    s = Session()
+    retries = Retry(
+        total=3,
+        backoff_factor=0.1,
+        status_forcelist=[502, 503, 504],
+    )
+    s.mount("https://", HTTPAdapter(max_retries=retries))
+    return s
 
 
 def inspect_quay_repo(repo, token=None):
@@ -34,13 +47,14 @@ def inspect_quay_repo(repo, token=None):
     headers = {}
     if token:
         headers["Authorization"] = "Bearer {0}".format(token)
+    session = get_session()
     start = datetime.datetime.now()
     page = 1
     while True:
         url = "https://{0}/api/v1/repository/{1}/tag/?onlyActiveTags=true&limit=100&page={2}".format(
             hostname, reponame, page
         )
-        resp = requests.get(url, headers=headers)
+        resp = session.get(url, headers=headers, timeout=60.0)
         resp.raise_for_status()
         data = resp.json()
         for tag in data["tags"]:
