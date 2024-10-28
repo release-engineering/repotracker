@@ -95,7 +95,7 @@ def inspect_tag(repo, tag):
     If the repo is not accessible, or the tag does not exist, raise an
     exception.
     """
-    proc = skopeo_run(f"{repo}:{tag}", "inspect", "--no-tags")
+    proc = skopeo_run(f"{repo}:{tag}", "inspect", "--no-tags", "--retry-times", "3")
     if proc.returncode:
         if "manifest unknown" in proc.stderr:
             # This tag has been deleted, which is represented by an empty dict.
@@ -111,7 +111,7 @@ def list_tags(repo):
     List the tags available in the given repo.
     If the repo is not available, raise an exception.
     """
-    proc = skopeo_run(repo, "list-tags")
+    proc = skopeo_run(repo, "list-tags", "--retry-times", "3")
     if proc.returncode:
         raise RuntimeError(f"Error listing tags for {repo}: {proc.stderr}")
     return json.loads(proc.stdout)["Tags"]
@@ -122,7 +122,7 @@ def skopeo_run(reporef, *args):
     Run skopeo with the given args, against the given repo reference.
     Return the CompletedProcess object associated with the skopeo command.
     """
-    cmd = ["/usr/bin/skopeo", *args, f"docker://{reporef}"]
+    cmd = ["/usr/bin/skopeo", "--command-timeout", "60s", *args, f"docker://{reporef}"]
     start = datetime.datetime.now()
     proc = subprocess.run(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8"

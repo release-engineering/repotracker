@@ -682,7 +682,15 @@ def test_list_tags(run):
     run.return_value.stdout = TAG_DATA
     result = container.list_tags("example.com/repos/testrepo")
     run.assert_called_once_with(
-        ["/usr/bin/skopeo", "list-tags", "docker://example.com/repos/testrepo"],
+        [
+            "/usr/bin/skopeo",
+            "--command-timeout",
+            "60s",
+            "list-tags",
+            "--retry-times",
+            "3",
+            "docker://example.com/repos/testrepo",
+        ],
         stdout=-1,
         stderr=-1,
         encoding="utf-8",
@@ -703,6 +711,27 @@ def test_list_tags_error(run):
 
 
 @patch.object(container.subprocess, "run")
+def test_inspect_tag_skopeo(run):
+    """
+    Test that inspect_tag() calls skopeo as expected.
+    """
+    run.return_value.returncode = 0
+    run.return_value.stdout = "{}"
+    container.inspect_tag("example.com/repos/testrepo", "foo")
+    run.assert_called_once()
+    assert run.call_args.args[0] == [
+        "/usr/bin/skopeo",
+        "--command-timeout",
+        "60s",
+        "inspect",
+        "--no-tags",
+        "--retry-times",
+        "3",
+        "docker://example.com/repos/testrepo:foo",
+    ]
+
+
+@patch.object(container.subprocess, "run")
 def test_skopeo_run(run):
     """
     Test that skopeo_run works as expected.
@@ -711,6 +740,8 @@ def test_skopeo_run(run):
     run.assert_called_once()
     assert run.call_args.args[0] == [
         "/usr/bin/skopeo",
+        "--command-timeout",
+        "60s",
         "foo",
         "docker://example.com/repos/testrepo",
     ]
