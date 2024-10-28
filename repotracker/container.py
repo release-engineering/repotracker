@@ -111,7 +111,10 @@ def inspect_tag(repo, tag):
     """
     proc = skopeo_run(f"{repo}:{tag}", "inspect", "--no-tags", "--retry-times", "3")
     if proc.returncode:
-        if "manifest unknown" in proc.stderr:
+        if (
+            "manifest unknown" in proc.stderr
+            or "was deleted or has expired" in proc.stderr
+        ):
             # This tag has been deleted, which is represented by an empty dict.
             return {}
         raise RuntimeError(
