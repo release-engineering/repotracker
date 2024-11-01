@@ -682,7 +682,15 @@ def test_list_tags(run):
     run.return_value.stdout = TAG_DATA
     result = container.list_tags("example.com/repos/testrepo")
     run.assert_called_once_with(
-        ["/usr/bin/skopeo", "list-tags", "docker://example.com/repos/testrepo"],
+        [
+            "/usr/bin/skopeo",
+            "--command-timeout",
+            "60s",
+            "list-tags",
+            "--retry-times",
+            "3",
+            "docker://example.com/repos/testrepo",
+        ],
         stdout=-1,
         stderr=-1,
         encoding="utf-8",
@@ -703,6 +711,27 @@ def test_list_tags_error(run):
 
 
 @patch.object(container.subprocess, "run")
+def test_inspect_tag_skopeo(run):
+    """
+    Test that inspect_tag() calls skopeo as expected.
+    """
+    run.return_value.returncode = 0
+    run.return_value.stdout = "{}"
+    container.inspect_tag("example.com/repos/testrepo", "foo")
+    run.assert_called_once()
+    assert run.call_args.args[0] == [
+        "/usr/bin/skopeo",
+        "--command-timeout",
+        "60s",
+        "inspect",
+        "--no-tags",
+        "--retry-times",
+        "3",
+        "docker://example.com/repos/testrepo:foo",
+    ]
+
+
+@patch.object(container.subprocess, "run")
 def test_skopeo_run(run):
     """
     Test that skopeo_run works as expected.
@@ -711,6 +740,8 @@ def test_skopeo_run(run):
     run.assert_called_once()
     assert run.call_args.args[0] == [
         "/usr/bin/skopeo",
+        "--command-timeout",
+        "60s",
         "foo",
         "docker://example.com/repos/testrepo",
     ]
@@ -786,16 +817,17 @@ for i in range(3):
 
 
 @patch.dict(CONF["test"], repo="quay.io/repos/testrepo")
-@patch.object(container.requests, "get", autospec=True)
-def test_quay_latest(get):
+@patch.object(container, "Session", autospec=True)
+def test_quay_latest(Session):
     """
     Test that data for a single tag from the quay.io API is handled correctly.
     """
-    get.return_value.json.return_value = QUAY_API_DATA
+    Session.return_value.get.return_value.json.return_value = QUAY_API_DATA
     result = container.check_repos(CONF, {})
-    get.assert_called_once_with(
+    Session.return_value.get.assert_called_once_with(
         "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1",
         headers={},
+        timeout=60.0,
     )
     assert result == {
         "quay.io/repos/testrepo": {
@@ -817,16 +849,17 @@ def test_quay_latest(get):
 
 @patch.dict(CONF["quayrepos"], repos="quay-like.io")
 @patch.dict(CONF["test"], repo="quay-like.io/repos/testrepo")
-@patch.object(container.requests, "get", autospec=True)
-def test_quay_repo_detection(get):
+@patch.object(container, "Session", autospec=True)
+def test_quay_repo_detection(Session):
     """
     Test that custom quay instances passed via config are inspected via Quay API
     """
-    get.return_value.json.return_value = QUAY_API_DATA
+    Session.return_value.get.return_value.json.return_value = QUAY_API_DATA
     result = container.check_repos(CONF, {})
-    get.assert_called_once_with(
+    Session.return_value.get.assert_called_once_with(
         "https://quay-like.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1",
         headers={},
+        timeout=60.0,
     )
     assert result == {
         "quay-like.io/repos/testrepo": {
@@ -848,45 +881,48 @@ def test_quay_repo_detection(get):
 
 @patch.dict(CONF["test"], repo="quay.io/repos/testrepo", token_env="ENV_TOKEN")
 @patch.dict(container.os.environ, {"ENV_TOKEN": "TOKEN"})
-@patch.object(container.requests, "get", autospec=True)
-def test_quay_token(get):
+@patch.object(container, "Session", autospec=True)
+def test_quay_token(Session):
     """
     Test that token is passed from config.
     """
-    get.return_value.json.return_value = QUAY_API_DATA
+    Session.return_value.get.return_value.json.return_value = QUAY_API_DATA
     container.check_repos(CONF, {})
-    get.assert_called_once_with(
+    Session.return_value.get.assert_called_once_with(
         "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1",
         headers={"Authorization": "Bearer TOKEN"},
+        timeout=60.0,
     )
 
 
 @patch.dict(CONF["test"], repo="quay.io/repos/testrepo", token_env="ENV_TOKEN")
 @patch.dict(container.os.environ, {})
-@patch.object(container.requests, "get", autospec=True)
-def test_quay_token_missing(get):
+@patch.object(container, "Session", autospec=True)
+def test_quay_token_missing(Session):
     """
     Test missing token in env but defined in config.
     """
-    get.return_value.json.return_value = QUAY_API_DATA
+    Session.return_value.get.return_value.json.return_value = QUAY_API_DATA
     container.check_repos(CONF, {})
-    get.assert_called_once_with(
+    Session.return_value.get.assert_called_once_with(
         "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1",
         headers={},
+        timeout=60.0,
     )
 
 
 @patch.dict(CONF["test"], repo="quay.io/repos/testrepo")
-@patch.object(container.requests, "get", autospec=True)
-def test_quay_multitag(get):
+@patch.object(container, "Session", autospec=True)
+def test_quay_multitag(Session):
     """
     Test that data for multiple tags from the quay.io API is handled correctly.
     """
-    get.return_value.json.return_value = QUAY_API_DATA_MULTITAG
+    Session.return_value.get.return_value.json.return_value = QUAY_API_DATA_MULTITAG
     result = container.check_repos(CONF, {})
-    get.assert_called_once_with(
+    Session.return_value.get.assert_called_once_with(
         "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1",
         headers={},
+        timeout=60.0,
     )
     assert result == {
         "quay.io/repos/testrepo": {
@@ -919,28 +955,31 @@ def test_quay_multitag(get):
 
 
 @patch.dict(CONF["test"], repo="quay.io/repos/testrepo")
-@patch.object(container.requests, "get", autospec=True)
-def test_quay_multipage(get):
+@patch.object(container, "Session", autospec=True)
+def test_quay_multipage(Session):
     """
     Test that multiple pages of data from the quay.io API are handled correctly.
     """
-    get.return_value.json.side_effect = QUAY_API_DATA_MULTIPAGE
+    Session.return_value.get.return_value.json.side_effect = QUAY_API_DATA_MULTIPAGE
     result = container.check_repos(CONF, {})
     calls = [
         call(
             "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1",
             headers={},
+            timeout=60.0,
         ),
         call(
             "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=2",
             headers={},
+            timeout=60.0,
         ),
         call(
             "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=3",
             headers={},
+            timeout=60.0,
         ),
     ]
-    get.assert_has_calls(calls, any_order=True)
+    Session.return_value.get.assert_has_calls(calls, any_order=True)
     assert result == {
         "quay.io/repos/testrepo": {
             "tag1": {
@@ -986,24 +1025,29 @@ def test_quay_multipage(get):
 @patch.dict(CONF["test"], repo="quay.io/repos/testrepo")
 @patch.dict(QUAY_API_DATA_MULTITAG, has_additional=True)
 @patch.dict(QUAY_API_DATA, page=2)
-@patch.object(container.requests, "get", autospec=True)
-def test_quay_multitag_multipage(get):
+@patch.object(container, "Session", autospec=True)
+def test_quay_multitag_multipage(Session):
     """
     Test that multiple pages of data containing multiple tags from the quay.io API are handled correctly.
     """
-    get.return_value.json.side_effect = [QUAY_API_DATA_MULTITAG, QUAY_API_DATA]
+    Session.return_value.get.return_value.json.side_effect = [
+        QUAY_API_DATA_MULTITAG,
+        QUAY_API_DATA,
+    ]
     result = container.check_repos(CONF, {})
     calls = [
         call(
             "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1",
             headers={},
+            timeout=60.0,
         ),
         call(
             "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=2",
             headers={},
+            timeout=60.0,
         ),
     ]
-    get.assert_has_calls(calls, any_order=True)
+    Session.return_value.get.assert_has_calls(calls, any_order=True)
     assert result == {
         "quay.io/repos/testrepo": {
             "stage": {
@@ -1047,12 +1091,14 @@ def test_quay_multitag_multipage(get):
 
 
 @patch.dict(CONF["test"], repo="quay.io/repos/testrepo")
-@patch.object(container.requests, "get", autospec=True)
-def test_quay_error_unchanged(get):
+@patch.object(container, "Session", autospec=True)
+def test_quay_error_unchanged(Session):
     """
     Test that a (temporary) error when querying the quay.io API leaves the data unchanged.
     """
-    get.return_value.raise_for_status.side_effect = RuntimeError("request error")
+    Session.return_value.get.return_value.raise_for_status.side_effect = RuntimeError(
+        "request error"
+    )
     old_data = {
         "quay.io/repos/testrepo": {
             "latest": {
@@ -1070,9 +1116,10 @@ def test_quay_error_unchanged(get):
         }
     }
     result = container.check_repos(CONF, old_data)
-    get.assert_called_once_with(
+    Session.return_value.get.assert_called_once_with(
         "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1",
         headers={},
+        timeout=60.0,
     )
     assert result == {
         "quay.io/repos/testrepo": {
@@ -1095,16 +1142,17 @@ def test_quay_error_unchanged(get):
 
 @patch.dict(CONF["test"], repo="quay.io/repos/testrepo")
 @patch.dict(QUAY_API_DATA_MULTITAG["tags"][0], name="prod")
-@patch.object(container.requests, "get", autospec=True)
-def test_quay_duplicate_tag(get):
+@patch.object(container, "Session", autospec=True)
+def test_quay_duplicate_tag(Session):
     """
     Test that data for duplicate tags with the same name from the quay.io API is handled correctly.
     """
-    get.return_value.json.return_value = QUAY_API_DATA_MULTITAG
+    Session.return_value.get.return_value.json.return_value = QUAY_API_DATA_MULTITAG
     result = container.check_repos(CONF, {})
-    get.assert_called_once_with(
+    Session.return_value.get.assert_called_once_with(
         "https://quay.io/api/v1/repository/repos/testrepo/tag/?onlyActiveTags=true&limit=100&page=1",
         headers={},
+        timeout=60.0,
     )
     assert result == {
         "quay.io/repos/testrepo": {

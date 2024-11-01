@@ -6,10 +6,24 @@ import os
 import subprocess
 import json
 import logging
-import requests
+import datetime
+from requests import Session
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 from repotracker.utils import format_ts, format_time
 
 log = logging.getLogger(__name__)
+
+
+def get_session():
+    s = Session()
+    retries = Retry(
+        total=3,
+        backoff_factor=0.1,
+        status_forcelist=[502, 503, 504],
+    )
+    s.mount("https://", HTTPAdapter(max_retries=retries))
+    return s
 
 
 def inspect_quay_repo(repo, token=None):
@@ -33,12 +47,14 @@ def inspect_quay_repo(repo, token=None):
     headers = {}
     if token:
         headers["Authorization"] = "Bearer {0}".format(token)
+    session = get_session()
+    start = datetime.datetime.now()
     page = 1
     while True:
         url = "https://{0}/api/v1/repository/{1}/tag/?onlyActiveTags=true&limit=100&page={2}".format(
             hostname, reponame, page
         )
-        resp = requests.get(url, headers=headers)
+        resp = session.get(url, headers=headers, timeout=60.0)
         resp.raise_for_status()
         data = resp.json()
         for tag in data["tags"]:
@@ -55,6 +71,9 @@ def inspect_quay_repo(repo, token=None):
         if not data["has_additional"]:
             break
         page += 1
+    log.info(
+        "Retrieved tag information for %s in %s", repo, datetime.datetime.now() - start
+    )
     return results
 
 
@@ -90,9 +109,12 @@ def inspect_tag(repo, tag):
     If the repo is not accessible, or the tag does not exist, raise an
     exception.
     """
-    proc = skopeo_run(f"{repo}:{tag}", "inspect", "--no-tags")
+    proc = skopeo_run(f"{repo}:{tag}", "inspect", "--no-tags", "--retry-times", "3")
     if proc.returncode:
-        if "manifest unknown" in proc.stderr:
+        if (
+            "manifest unknown" in proc.stderr
+            or "was deleted or has expired" in proc.stderr
+        ):
             # This tag has been deleted, which is represented by an empty dict.
             return {}
         raise RuntimeError(
@@ -106,7 +128,7 @@ def list_tags(repo):
     List the tags available in the given repo.
     If the repo is not available, raise an exception.
     """
-    proc = skopeo_run(repo, "list-tags")
+    proc = skopeo_run(repo, "list-tags", "--retry-times", "3")
     if proc.returncode:
         raise RuntimeError(f"Error listing tags for {repo}: {proc.stderr}")
     return json.loads(proc.stdout)["Tags"]
@@ -117,10 +139,13 @@ def skopeo_run(reporef, *args):
     Run skopeo with the given args, against the given repo reference.
     Return the CompletedProcess object associated with the skopeo command.
     """
-    cmd = ["/usr/bin/skopeo", *args, f"docker://{reporef}"]
-    return subprocess.run(
+    cmd = ["/usr/bin/skopeo", "--command-timeout", "60s", *args, f"docker://{reporef}"]
+    start = datetime.datetime.now()
+    proc = subprocess.run(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8"
     )
+    log.info('Ran "%s" in %s', " ".join(cmd), datetime.datetime.now() - start)
+    return proc
 
 
 def gen_result(repo, tag, tagdata):
