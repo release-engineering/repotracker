@@ -8,7 +8,7 @@ LABEL \
     description="A microservice for tracking container repositories, and publishing a message when they change." \
     usage="https://github.com/release-engineering/repotracker"
 
-ARG DNF_CMD="dnf -y --repo=fedora,updates --setopt=deltarpm=False --setopt=install_weak_deps=False --setopt=tsflags=nodocs"
+ARG DNF_CMD="dnf -y --repo=fedora,updates,updates-testing --setopt=deltarpm=False --setopt=install_weak_deps=False --setopt=tsflags=nodocs"
 ARG PIP_CMD="python3 -m pip install -v --no-build-isolation --no-cache-dir --prefix=/usr --compile"
 
 ARG RHMSG_REPO="https://gitlab.cee.redhat.com/exd-guild-messaging/rhmsg.git"
@@ -29,7 +29,8 @@ ADD https://certs.corp.redhat.com/certs/Current-IT-Root-CAs.pem \
     /etc/pki/ca-trust/source/anchors/
 RUN update-ca-trust
 
-RUN $DNF_CMD install python3-pip \
+RUN $DNF_CMD update && \
+    $DNF_CMD install python3-pip \
                      python3-qpid-proton git-core skopeo && \
     $DNF_CMD clean all
 RUN $PIP_CMD --upgrade setuptools setuptools_scm wheel
