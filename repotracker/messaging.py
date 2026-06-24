@@ -6,7 +6,6 @@ import json
 import logging
 from rhmsg.activemq.producer import AMQProducer
 
-
 log = logging.getLogger(__name__)
 
 

@@ -7,7 +7,6 @@ import argparse
 import pprint
 from repotracker import utils, container, messaging
 
-
 log = logging.getLogger(__name__)
 
 
