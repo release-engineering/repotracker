@@ -10,7 +10,6 @@ import stat
 import datetime
 import re
 
-
 FRACTIONAL_SECONDS_RE = re.compile(r"\.\d+(\w*)$")
 
 

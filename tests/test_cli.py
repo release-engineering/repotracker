@@ -41,15 +41,13 @@ def test_main_default(tmpdir):
     Test that the main() method works as expected with default args.
     """
     conf = tmpdir.join("conf")
-    conf.write(
-        """[broker]
+    conf.write("""[broker]
     urls = amqps://broker01.example.com
     cert = /cert
     key = /key
     cacerts = /cacerts
     topic_prefix = container
-    """
-    )
+    """)
     data = tmpdir.join("data")
     with patch("sys.argv", new=["foo", "-c", str(conf), "-d", str(data)]):
         cli.main()
@@ -60,15 +58,13 @@ def test_main_quiet_verbose(tmpdir):
     Test that the main() method works as expected with quiet and verbose options.
     """
     conf = tmpdir.join("conf")
-    conf.write(
-        """[broker]
+    conf.write("""[broker]
     urls = amqps://broker01.example.com
     cert = /cert
     key = /key
     cacerts = /cacerts
     topic_prefix = container
-    """
-    )
+    """)
     data = tmpdir.join("data")
     with patch("sys.argv", new=["foo", "-c", str(conf), "-d", str(data), "-q", "-v"]):
         cli.main()
@@ -84,15 +80,13 @@ def test_main_error(send_container_updates, tmpdir):
     Test that the main() method works as expected when handling an error.
     """
     conf = tmpdir.join("conf")
-    conf.write(
-        """[broker]
+    conf.write("""[broker]
     urls = amqps://broker01.example.com
     cert = /cert
     key = /key
     cacerts = /cacerts
     topic_prefix = container
-    """
-    )
+    """)
     data = tmpdir.join("data")
     with patch("sys.argv", new=["foo", "-c", str(conf), "-d", str(data), "-q", "-v"]):
         with pytest.raises(RuntimeError):

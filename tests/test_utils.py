@@ -10,8 +10,7 @@ def test_load_config(tmpdir):
     Test that the config can be loaded.
     """
     conf = tmpdir.join("conf")
-    conf.write(
-        """[broker]
+    conf.write("""[broker]
     urls = amqps://broker01.example.com
     cert = /cert
     key = /key
@@ -21,8 +20,7 @@ def test_load_config(tmpdir):
     [example]
     type = container
     repo = example.com/repos/testrepo
-    """
-    )
+    """)
     result = utils.load_config(str(conf))
     assert result.has_section("broker")
     assert result["broker"]["urls"] == "amqps://broker01.example.com"

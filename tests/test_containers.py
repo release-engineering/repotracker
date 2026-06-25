@@ -8,7 +8,6 @@ from unittest.mock import patch, call, Mock
 import json
 import pytest
 
-
 CONF = {
     "broker": {
         "urls": "amqps://broker01.example.com",
